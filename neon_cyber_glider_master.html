@@ -1,0 +1,2272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEON CYBER-GLIDER: ROGUE NETWORK</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+          },
+          boxShadow: {
+            neon: '0 0 0 1px rgba(110,253,255,0.15), 0 0 24px rgba(110,253,255,0.14), 0 0 48px rgba(255,75,214,0.12)',
+            panel: '0 18px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)'
+          },
+          backdropBlur: {
+            xs: '3px'
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root {
+      --bg0: #020108;
+      --bg1: #0a0317;
+      --bg2: #150626;
+      --cyan: #72fbff;
+      --pink: #ff4bd6;
+      --green: #59ff8e;
+      --red: #ff445f;
+      --violet: #b07cff;
+      --gold: #ffd86b;
+      --white: #effbff;
+      --panel: rgba(10, 16, 31, 0.42);
+      --panel2: rgba(14, 20, 38, 0.64);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 18%, rgba(255, 76, 214, 0.08), transparent 30%), linear-gradient(180deg, #11041e 0%, #080214 40%, #020108 100%);
+      color: var(--white);
+      font-family: Inter, system-ui, sans-serif;
+      user-select: none;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: linear-gradient(180deg, #11041d 0%, #070112 52%, #020107 100%);
+    }
+
+    .screen {
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+
+    .title-glow {
+      animation: titlePulse 1.85s ease-in-out infinite;
+      text-shadow:
+        0 0 6px rgba(255,255,255,0.28),
+        0 0 18px rgba(255, 75, 214, 0.82),
+        0 0 44px rgba(255, 75, 214, 0.34),
+        0 0 76px rgba(114, 251, 255, 0.14);
+    }
+
+    .title-glow-back {
+      animation: titleShift 2.4s ease-in-out infinite;
+      filter: blur(2px);
+      text-shadow: 0 0 14px rgba(114, 251, 255, 0.95), 0 0 40px rgba(114, 251, 255, 0.34);
+    }
+
+    .scanline::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.0) 40%, rgba(255,255,255,0.025));
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+    .neon-outline {
+      box-shadow:
+        0 0 0 1px rgba(110, 253, 255, 0.12),
+        0 0 24px rgba(110, 253, 255, 0.12),
+        0 0 36px rgba(255, 75, 214, 0.08),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .status-visible {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
+    }
+
+    .status-hidden {
+      opacity: 0;
+      transform: translate(-50%, -12px) scale(0.98);
+    }
+
+    @keyframes titlePulse {
+      0%, 100% {
+        filter: brightness(1) saturate(1);
+      }
+      50% {
+        filter: brightness(1.18) saturate(1.16);
+      }
+    }
+
+    @keyframes titleShift {
+      0%, 100% { transform: translate(4px, 2px); opacity: 0.84; }
+      50% { transform: translate(7px, -1px); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="fixed inset-0 pointer-events-none">
+    <div id="hud" class="absolute left-4 right-4 top-4 z-20">
+      <div class="mx-auto max-w-7xl rounded-[1.4rem] border border-cyan-300/10 bg-slate-950/30 p-3 backdrop-blur-xl shadow-panel neon-outline">
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div class="rounded-2xl border border-white/8 bg-white/5 px-4 py-3 backdrop-blur-sm">
+            <div class="text-[10px] uppercase tracking-[0.28em] text-cyan-100/60">Data Cubes</div>
+            <div id="hudCubes" class="mt-1 text-xl font-black tracking-wide text-cyan-200">0</div>
+          </div>
+          <div class="rounded-2xl border border-white/8 bg-white/5 px-4 py-3 backdrop-blur-sm">
+            <div class="text-[10px] uppercase tracking-[0.28em] text-cyan-100/60">Distance</div>
+            <div id="hudDistance" class="mt-1 text-xl font-black tracking-wide text-cyan-200">0 m</div>
+          </div>
+          <div class="rounded-2xl border border-white/8 bg-white/5 px-4 py-3 backdrop-blur-sm">
+            <div class="flex items-center justify-between text-[10px] uppercase tracking-[0.28em] text-cyan-100/60">
+              <span>Overclock Energy</span>
+              <span id="hudEnergyText">0%</span>
+            </div>
+            <div class="mt-2 h-3 overflow-hidden rounded-full border border-white/8 bg-white/8">
+              <div id="hudEnergyFill" class="h-full w-0 rounded-full bg-gradient-to-r from-cyan-300 via-violet-400 to-fuchsia-400 shadow-[0_0_18px_rgba(114,251,255,0.6)]"></div>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-white/8 bg-white/5 px-4 py-3 backdrop-blur-sm">
+            <div class="text-[10px] uppercase tracking-[0.28em] text-cyan-100/60">Shield Array</div>
+            <div class="mt-2 flex items-center gap-2">
+              <div class="shield-dot h-3 w-3 rounded-full border border-white/20 bg-white/10"></div>
+              <div class="shield-dot h-3 w-3 rounded-full border border-white/20 bg-white/10"></div>
+              <div class="shield-dot h-3 w-3 rounded-full border border-white/20 bg-white/10"></div>
+            </div>
+            <div id="hudChassis" class="mt-2 text-[11px] uppercase tracking-[0.22em] text-cyan-100/70">Volt Horizon</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="statusBanner" class="status-hidden fixed left-1/2 top-[15%] z-30 rounded-full border border-white/10 bg-slate-950/45 px-5 py-3 text-center text-xs font-black uppercase tracking-[0.32em] text-white backdrop-blur-xl shadow-neon transition-all duration-150"></div>
+
+    <div id="footerHint" class="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/8 bg-slate-950/35 px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-cyan-100/60 backdrop-blur-lg shadow-neon">
+      A / D or ← / → to steer • Space to Overclock • R to restart
+    </div>
+  </div>
+
+  <div id="menuScreen" class="screen fixed inset-0 z-30 flex items-center justify-center p-4 lg:p-8">
+    <div class="scanline relative mx-auto grid w-full max-w-7xl gap-4 rounded-[1.8rem] border border-cyan-300/10 bg-slate-950/30 p-4 shadow-panel backdrop-blur-2xl neon-outline lg:grid-cols-[1.2fr_0.9fr] lg:p-6">
+      <div class="rounded-[1.5rem] border border-white/8 bg-white/5 p-6 backdrop-blur-md lg:p-8">
+        <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-cyan-100/70">
+          <span class="h-2 w-2 rounded-full bg-gradient-to-b from-cyan-300 to-fuchsia-400 shadow-[0_0_12px_rgba(114,251,255,0.9)]"></span>
+          Neon Flight Deck Online
+        </div>
+
+        <div class="relative mt-4 overflow-hidden py-2">
+          <div class="title-glow-back absolute inset-0 text-[clamp(2.4rem,6vw,5.7rem)] font-black uppercase leading-[0.9] tracking-[0.14em] text-cyan-300/80">NEON CYBER-GLIDER</div>
+          <div class="title-glow relative text-[clamp(2.4rem,6vw,5.7rem)] font-black uppercase leading-[0.9] tracking-[0.14em] text-transparent bg-gradient-to-b from-white via-fuchsia-300 to-cyan-300 bg-clip-text">NEON CYBER-GLIDER</div>
+          <div class="mt-2 text-sm uppercase tracking-[0.55em] text-cyan-100/80 lg:text-base">Rogue Network</div>
+        </div>
+
+        <p class="mt-4 max-w-3xl text-sm leading-7 text-cyan-50/70 lg:text-base">
+          Surf the rogue transit spine with a high-performance synthwave runner tuned for silky frame pacing, neon bloom, glassmorphic UI, and aggressive arcade pressure. Harvest Data Cubes, weaponize Near-Miss stunts, evade Firewall Lasers, outplay the Corrupted Hunter, and unleash a cinematic Overclock burst.
+        </p>
+
+        <div class="mt-6 rounded-[1.4rem] border border-white/8 bg-white/5 p-4 backdrop-blur-md lg:p-5">
+          <div class="text-[11px] uppercase tracking-[0.3em] text-cyan-100/65">Initialize Run</div>
+          <div class="mt-3 flex flex-wrap gap-3">
+            <button id="startButton" class="pointer-events-auto rounded-2xl border border-white/10 bg-gradient-to-r from-cyan-400/20 to-fuchsia-500/20 px-6 py-4 text-sm font-black uppercase tracking-[0.24em] text-white shadow-neon transition hover:-translate-y-0.5 hover:border-cyan-300/30 hover:from-cyan-300/30 hover:to-fuchsia-400/30">Initialize System</button>
+            <button id="quickStartButton" class="pointer-events-auto rounded-2xl border border-white/10 bg-white/6 px-5 py-4 text-sm font-bold uppercase tracking-[0.2em] text-cyan-100/80 transition hover:-translate-y-0.5 hover:bg-white/10">Launch Center Lane</button>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-[1.4rem] border border-white/8 bg-white/5 p-4 backdrop-blur-md lg:p-5">
+          <div class="text-[11px] uppercase tracking-[0.3em] text-cyan-100/65">Ship Chassis Select</div>
+          <div id="chassisGrid" class="mt-4 grid gap-3 lg:grid-cols-3">
+            <button data-chassis="volt" class="chassis-card pointer-events-auto rounded-[1.2rem] border border-cyan-300/30 bg-cyan-300/8 p-4 text-left shadow-neon transition hover:-translate-y-0.5">
+              <div class="mb-3 h-20 rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 via-cyan-400/25 to-cyan-200/10 shadow-[inset_0_0_28px_rgba(114,251,255,0.12)]"></div>
+              <div class="text-sm font-black uppercase tracking-[0.16em] text-cyan-100">Volt Horizon</div>
+              <div class="mt-1 text-sm leading-6 text-cyan-50/65">Neon cyan speed frame with clean ion wake and balanced optical contrast.</div>
+            </button>
+            <button data-chassis="laser" class="chassis-card pointer-events-auto rounded-[1.2rem] border border-white/8 bg-white/5 p-4 text-left transition hover:-translate-y-0.5 hover:border-fuchsia-300/30 hover:bg-fuchsia-300/8 hover:shadow-neon">
+              <div class="mb-3 h-20 rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 via-fuchsia-400/25 to-rose-300/10 shadow-[inset_0_0_28px_rgba(255,75,214,0.12)]"></div>
+              <div class="text-sm font-black uppercase tracking-[0.16em] text-cyan-100">Laser Edge</div>
+              <div class="mt-1 text-sm leading-6 text-cyan-50/65">Hot pink edge-runner chassis tuned for razor highlights and aggressive plasma glare.</div>
+            </button>
+            <button data-chassis="matrix" class="chassis-card pointer-events-auto rounded-[1.2rem] border border-white/8 bg-white/5 p-4 text-left transition hover:-translate-y-0.5 hover:border-green-300/30 hover:bg-green-300/8 hover:shadow-neon">
+              <div class="mb-3 h-20 rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 via-green-400/25 to-emerald-300/10 shadow-[inset_0_0_28px_rgba(89,255,142,0.12)]"></div>
+              <div class="text-sm font-black uppercase tracking-[0.16em] text-cyan-100">Matrix Core</div>
+              <div class="mt-1 text-sm leading-6 text-cyan-50/65">Bright green infiltration chassis with bio-digital glow and razor lane readability.</div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-4">
+        <div class="rounded-[1.5rem] border border-white/8 bg-white/5 p-5 backdrop-blur-md">
+          <div class="text-[11px] uppercase tracking-[0.3em] text-cyan-100/65">Core Systems</div>
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            <div class="rounded-2xl border border-white/8 bg-white/5 p-4">
+              <div class="text-xl font-black text-cyan-200">Near-Miss</div>
+              <div class="mt-1 text-sm leading-6 text-cyan-50/65">Skim adjacent Firewall Lasers for +500 score and +25% Overclock energy.</div>
+            </div>
+            <div class="rounded-2xl border border-white/8 bg-white/5 p-4">
+              <div class="text-xl font-black text-cyan-200">Hunter Pressure</div>
+              <div class="mt-1 text-sm leading-6 text-cyan-50/65">A Corrupted Hunter locks your lane and fires projectiles that force rapid weaving.</div>
+            </div>
+            <div class="rounded-2xl border border-white/8 bg-white/5 p-4">
+              <div class="text-xl font-black text-cyan-200">500m Ramp</div>
+              <div class="mt-1 text-sm leading-6 text-cyan-50/65">Every 500 meters permanently boosts track speed and audio urgency by 15%.</div>
+            </div>
+            <div class="rounded-2xl border border-white/8 bg-white/5 p-4">
+              <div class="text-xl font-black text-cyan-200">Overclock</div>
+              <div class="mt-1 text-sm leading-6 text-cyan-50/65">Full-screen FOV stretch, organic road wave bend, and twin plasma beams vaporizing threats.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-[1.5rem] border border-white/8 bg-white/5 p-5 backdrop-blur-md">
+          <div class="text-[11px] uppercase tracking-[0.3em] text-cyan-100/65">Neural Controls</div>
+          <div class="mt-4 grid gap-3">
+            <div class="grid grid-cols-[auto_1fr] gap-3 rounded-2xl border border-white/8 bg-white/5 p-4">
+              <div class="rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-xs font-black uppercase tracking-[0.22em] text-white">A / D</div>
+              <div class="text-sm leading-6 text-cyan-50/65">Elastic lane steering with spring-damped glide for responsive movement.</div>
+            </div>
+            <div class="grid grid-cols-[auto_1fr] gap-3 rounded-2xl border border-white/8 bg-white/5 p-4">
+              <div class="rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-xs font-black uppercase tracking-[0.22em] text-white">← / →</div>
+              <div class="text-sm leading-6 text-cyan-50/65">Alternative steer input mapped to the same polished lane physics system.</div>
+            </div>
+            <div class="grid grid-cols-[auto_1fr] gap-3 rounded-2xl border border-white/8 bg-white/5 p-4">
+              <div class="rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-xs font-black uppercase tracking-[0.22em] text-white">Space</div>
+              <div class="text-sm leading-6 text-cyan-50/65">Trigger Overclock at 100% energy for cinematic warp acceleration and plasma beams.</div>
+            </div>
+            <div class="grid grid-cols-[auto_1fr] gap-3 rounded-2xl border border-white/8 bg-white/5 p-4">
+              <div class="rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-xs font-black uppercase tracking-[0.22em] text-white">R</div>
+              <div class="text-sm leading-6 text-cyan-50/65">Instant reboot from the Game Over screen.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameOverScreen" class="screen pointer-events-none fixed inset-0 z-30 hidden items-center justify-center p-4 lg:p-8">
+    <div class="mx-auto grid w-full max-w-6xl gap-4 rounded-[1.8rem] border border-cyan-300/10 bg-slate-950/35 p-5 shadow-panel backdrop-blur-2xl neon-outline lg:grid-cols-[1.1fr_0.9fr]">
+      <div class="rounded-[1.5rem] border border-white/8 bg-white/5 p-6 backdrop-blur-md lg:p-8">
+        <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-rose-100/70">
+          <span class="h-2 w-2 rounded-full bg-gradient-to-b from-rose-300 to-fuchsia-400 shadow-[0_0_12px_rgba(255,68,95,0.85)]"></span>
+          Run Terminated
+        </div>
+        <div class="mt-4 text-[clamp(2.1rem,5vw,4.6rem)] font-black uppercase leading-[0.9] tracking-[0.14em] text-transparent bg-gradient-to-b from-white via-rose-300 to-cyan-300 bg-clip-text">System Failure</div>
+        <div class="mt-2 text-sm uppercase tracking-[0.45em] text-cyan-100/75">Signal Lost in Rogue Network</div>
+        <p class="mt-5 max-w-2xl text-sm leading-7 text-cyan-50/65 lg:text-base">
+          Shield integrity collapsed under rogue network pressure. Reinitialize instantly, recalibrate your chassis, and dive back into the synthwave corridor.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-3 pointer-events-auto">
+          <button id="restartButton" class="pointer-events-auto rounded-2xl border border-white/10 bg-gradient-to-r from-cyan-400/20 to-fuchsia-500/20 px-6 py-4 text-sm font-black uppercase tracking-[0.24em] text-white shadow-neon transition hover:-translate-y-0.5">Reinitialize Run</button>
+          <button id="returnMenuButton" class="pointer-events-auto rounded-2xl border border-white/10 bg-white/6 px-5 py-4 text-sm font-bold uppercase tracking-[0.2em] text-cyan-100/80 transition hover:-translate-y-0.5 hover:bg-white/10">Return to Main Menu</button>
+        </div>
+      </div>
+      <div class="rounded-[1.5rem] border border-white/8 bg-white/5 p-5 backdrop-blur-md">
+        <div class="text-[11px] uppercase tracking-[0.3em] text-cyan-100/65">Run Summary</div>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <div class="rounded-2xl border border-white/8 bg-white/5 p-4">
+            <div id="finalCubes" class="text-2xl font-black text-cyan-200">0</div>
+            <div class="mt-1 text-sm leading-6 text-cyan-50/65">Data Cubes collected</div>
+          </div>
+          <div class="rounded-2xl border border-white/8 bg-white/5 p-4">
+            <div id="finalDistance" class="text-2xl font-black text-cyan-200">0 m</div>
+            <div class="mt-1 text-sm leading-6 text-cyan-50/65">Distance carved</div>
+          </div>
+          <div class="rounded-2xl border border-white/8 bg-white/5 p-4">
+            <div id="finalScore" class="text-2xl font-black text-cyan-200">0</div>
+            <div class="mt-1 text-sm leading-6 text-cyan-50/65">Total score</div>
+          </div>
+          <div class="rounded-2xl border border-white/8 bg-white/5 p-4">
+            <div id="finalChassis" class="text-2xl font-black text-cyan-200">Volt Horizon</div>
+            <div class="mt-1 text-sm leading-6 text-cyan-50/65">Selected chassis</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+      const sceneCanvas = document.createElement('canvas');
+      const sceneCtx = sceneCanvas.getContext('2d', { alpha: false, desynchronized: true });
+
+      const hud = document.getElementById('hud');
+      const menuScreen = document.getElementById('menuScreen');
+      const gameOverScreen = document.getElementById('gameOverScreen');
+      const statusBanner = document.getElementById('statusBanner');
+      const footerHint = document.getElementById('footerHint');
+      const hudCubes = document.getElementById('hudCubes');
+      const hudDistance = document.getElementById('hudDistance');
+      const hudEnergyText = document.getElementById('hudEnergyText');
+      const hudEnergyFill = document.getElementById('hudEnergyFill');
+      const hudChassis = document.getElementById('hudChassis');
+      const shieldDots = Array.from(document.querySelectorAll('.shield-dot'));
+      const finalCubes = document.getElementById('finalCubes');
+      const finalDistance = document.getElementById('finalDistance');
+      const finalScore = document.getElementById('finalScore');
+      const finalChassis = document.getElementById('finalChassis');
+      const startButton = document.getElementById('startButton');
+      const quickStartButton = document.getElementById('quickStartButton');
+      const restartButton = document.getElementById('restartButton');
+      const returnMenuButton = document.getElementById('returnMenuButton');
+      const chassisButtons = Array.from(document.querySelectorAll('.chassis-card'));
+
+      const DPR_MAX = 2;
+      const TAU = Math.PI * 2;
+      const LANES = [-1, 0, 1];
+      const MAX_SHIELDS = 3;
+      const ROAD_SAMPLES = 52;
+      const roadLeftX = new Float32Array(ROAD_SAMPLES + 1);
+      const roadLeftY = new Float32Array(ROAD_SAMPLES + 1);
+      const roadRightX = new Float32Array(ROAD_SAMPLES + 1);
+      const roadRightY = new Float32Array(ROAD_SAMPLES + 1);
+      const tempProjA = { x: 0, y: 0, centerX: 0, halfRoad: 0, scale: 0 };
+      const tempProjB = { x: 0, y: 0, centerX: 0, halfRoad: 0, scale: 0 };
+      const tempProjC = { x: 0, y: 0, centerX: 0, halfRoad: 0, scale: 0 };
+      const tempProjD = { x: 0, y: 0, centerX: 0, halfRoad: 0, scale: 0 };
+      const deadLeftX = new Float32Array(14);
+      const deadLeftY = new Float32Array(14);
+      const deadRightX = new Float32Array(14);
+      const deadRightY = new Float32Array(14);
+
+      let width = 0;
+      let height = 0;
+      let dpr = Math.min(window.devicePixelRatio || 1, DPR_MAX);
+      let activeChassisButton = null;
+      let lastTime = performance.now();
+      const shipScreen = { x: 0, y: 0 };
+      const droneScreen = { x: 0, y: 0, scale: 1 };
+
+      const CHASSIS = {
+        volt: { key: 'volt', name: 'Volt Horizon', base: '#72fbff', accent: '#10d7ff', secondary: '#b8ffff', trail: '#9cfffd', beam: '#72fbff' },
+        laser: { key: 'laser', name: 'Laser Edge', base: '#ff6be6', accent: '#ff37bc', secondary: '#ffc4f6', trail: '#ff9ff0', beam: '#ff6be6' },
+        matrix: { key: 'matrix', name: 'Matrix Core', base: '#6fff9d', accent: '#2ef56f', secondary: '#d8ffe6', trail: '#9fffb9', beam: '#61ff93' }
+      };
+
+      const stars = [];
+      const microParticles = [];
+      const skyline = [];
+
+      function createPool(size, factory) {
+        const items = new Array(size);
+        for (let i = 0; i < size; i++) items[i] = factory();
+        return { items, cursor: 0 };
+      }
+
+      function acquire(pool) {
+        const items = pool.items;
+        const len = items.length;
+        let start = pool.cursor;
+        for (let n = 0; n < len; n++) {
+          const idx = (start + n) % len;
+          const item = items[idx];
+          if (!item.active) {
+            pool.cursor = (idx + 1) % len;
+            item.active = true;
+            return item;
+          }
+        }
+        return null;
+      }
+
+      function deactivate(obj) {
+        obj.active = false;
+      }
+
+      const pools = {
+        cubes: createPool(28, () => ({ active: false, type: 'cube', lane: 0, depth: 0, rot: 0, spin: 0, pulse: 0, size: 1, hit: 0 })),
+        hazards: createPool(22, () => ({ active: false, type: 'hazard', lane: 0, depth: 0, pulse: 0, size: 1, near: 0, hit: 0, vapor: 0 })),
+        projectiles: createPool(28, () => ({ active: false, type: 'projectile', lane: 0, depth: 0, pulse: 0, size: 1, hit: 0, vapor: 0 })),
+        particles: createPool(340, () => ({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 1, glow: 0, color: '#ffffff', drag: 0.96, star: 0 })),
+        texts: createPool(34, () => ({ active: false, x: 0, y: 0, life: 0, rise: 0, scale: 1, color: '#ffffff', text: '' }))
+      };
+
+      const audio = {
+        initialized: false,
+        ctx: null,
+        master: null,
+        filter: null,
+        bassOsc: null,
+        leadOsc: null,
+        airOsc: null,
+        bassGain: null,
+        pulseGain: null,
+        airGain: null,
+        fxGain: null,
+        phase: 0
+      };
+
+      const game = {
+        state: 'MENU',
+        time: 0,
+        selectedChassis: 'volt',
+        score: 0,
+        cubes: 0,
+        distance: 0,
+        shields: MAX_SHIELDS,
+        difficultyTier: 0,
+        speedMul: 1,
+        worldSpeed: 0.38,
+        gridScroll: 0,
+        spawnCubeTimer: 0.46,
+        spawnHazardTimer: 0.92,
+        spawnPatternTimer: 0.78,
+        player: {
+          lane: 0,
+          xLane: 0,
+          laneVel: 0,
+          hitCooldown: 0,
+          stuntWindow: 0,
+          bob: 0
+        },
+        overclock: {
+          energy: 0,
+          ready: false,
+          active: false,
+          timer: 0,
+          intensity: 0
+        },
+        drone: {
+          active: false,
+          mode: 'horizon',
+          lane: 0,
+          xLane: 0,
+          phase: 'idle',
+          timer: 4.8,
+          phaseDuration: 1,
+          lockLane: 0,
+          shotsLeft: 0,
+          shotTimer: 0,
+          cycles: 0,
+          pulse: 0,
+          exposure: 0,
+          rearX: 0,
+          rearY: 0
+        },
+        camera: {
+          shake: 0,
+          aberration: 0,
+          damageFlash: 0,
+          drift: 0
+        },
+        ui: {
+          message: '',
+          type: 'info',
+          timer: 0
+        }
+      };
+
+      function clamp(value, min, max) {
+        return value < min ? min : value > max ? max : value;
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function rand(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      function randInt(min, max) {
+        return Math.floor(rand(min, max + 1));
+      }
+
+      function choose(array) {
+        return array[(Math.random() * array.length) | 0];
+      }
+
+      function resetPool(pool) {
+        const items = pool.items;
+        for (let i = 0; i < items.length; i++) items[i].active = false;
+        pool.cursor = 0;
+      }
+
+      function initStars() {
+        stars.length = 0;
+        const count = Math.max(110, Math.floor(width * 0.1));
+        for (let i = 0; i < count; i++) {
+          stars.push({
+            x: Math.random(),
+            y: Math.random() * 0.75,
+            size: rand(0.4, 2.1),
+            speed: rand(0.005, 0.035),
+            twinkle: rand(0, TAU),
+            hue: choose([186, 198, 290, 320])
+          });
+        }
+      }
+
+      function initMicroParticles() {
+        microParticles.length = 0;
+        const count = Math.max(46, Math.floor(width * 0.042));
+        for (let i = 0; i < count; i++) {
+          microParticles.push({
+            x: rand(-1.2, 1.2),
+            y: rand(0.05, 1.1),
+            z: rand(0.1, 1.0),
+            speed: rand(0.16, 0.42),
+            size: rand(0.6, 1.8),
+            alpha: rand(0.08, 0.45)
+          });
+        }
+      }
+
+      function initSkyline() {
+        skyline.length = 0;
+        let cursor = -0.08;
+        while (cursor < 1.08) {
+          const w = rand(0.02, 0.065);
+          skyline.push({
+            x: cursor,
+            w,
+            h: rand(0.08, 0.25),
+            notch: rand(0.02, 0.06),
+            antenna: Math.random() < 0.34 ? rand(0.02, 0.08) : 0,
+            windows: randInt(2, 6)
+          });
+          cursor += w + rand(0.008, 0.02);
+        }
+      }
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, DPR_MAX);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        sceneCanvas.width = canvas.width;
+        sceneCanvas.height = canvas.height;
+        sceneCanvas.style.width = width + 'px';
+        sceneCanvas.style.height = height + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        sceneCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        initStars();
+        initMicroParticles();
+        initSkyline();
+      }
+
+      function setSelectedChassis(key) {
+        game.selectedChassis = key;
+        hudChassis.textContent = CHASSIS[key].name;
+        for (let i = 0; i < chassisButtons.length; i++) {
+          const btn = chassisButtons[i];
+          const chassis = CHASSIS[btn.dataset.chassis];
+          btn.classList.remove('shadow-neon');
+          btn.classList.add('border-white/8', 'bg-white/5');
+          btn.style.borderColor = 'rgba(255,255,255,0.08)';
+          btn.style.backgroundColor = 'rgba(255,255,255,0.05)';
+          if (btn.dataset.chassis === key) {
+            activeChassisButton = btn;
+            btn.classList.remove('border-white/8', 'bg-white/5');
+            btn.classList.add('shadow-neon');
+            if (chassis.key === 'volt') {
+              btn.style.borderColor = 'rgba(114,251,255,0.36)';
+              btn.style.backgroundColor = 'rgba(114,251,255,0.08)';
+            } else if (chassis.key === 'laser') {
+              btn.style.borderColor = 'rgba(255,107,230,0.34)';
+              btn.style.backgroundColor = 'rgba(255,107,230,0.08)';
+            } else {
+              btn.style.borderColor = 'rgba(111,255,157,0.34)';
+              btn.style.backgroundColor = 'rgba(111,255,157,0.08)';
+            }
+          }
+        }
+      }
+
+      function showStatus(text, type, duration) {
+        game.ui.message = text;
+        game.ui.type = type || 'info';
+        game.ui.timer = duration || 0.9;
+        statusBanner.textContent = text;
+        statusBanner.classList.remove('status-hidden');
+        statusBanner.classList.add('status-visible');
+        if (type === 'danger') {
+          statusBanner.style.color = '#fff3f4';
+          statusBanner.style.textShadow = '0 0 14px rgba(255,68,95,0.92), 0 0 28px rgba(255,68,95,0.42)';
+          statusBanner.style.borderColor = 'rgba(255,68,95,0.24)';
+        } else {
+          statusBanner.style.color = '#f7fdff';
+          statusBanner.style.textShadow = '0 0 14px rgba(114,251,255,0.92), 0 0 28px rgba(255,75,214,0.42)';
+          statusBanner.style.borderColor = 'rgba(114,251,255,0.22)';
+        }
+      }
+
+      function hideStatus() {
+        game.ui.message = '';
+        statusBanner.classList.remove('status-visible');
+        statusBanner.classList.add('status-hidden');
+      }
+
+      function setState(nextState) {
+        game.state = nextState;
+        if (nextState === 'MENU') {
+          menuScreen.classList.remove('hidden');
+          gameOverScreen.classList.add('hidden');
+          gameOverScreen.classList.remove('flex');
+          menuScreen.classList.add('flex');
+          footerHint.classList.add('hidden');
+        } else if (nextState === 'PLAYING') {
+          menuScreen.classList.add('hidden');
+          menuScreen.classList.remove('flex');
+          gameOverScreen.classList.add('hidden');
+          gameOverScreen.classList.remove('flex');
+          footerHint.classList.remove('hidden');
+        } else {
+          menuScreen.classList.add('hidden');
+          menuScreen.classList.remove('flex');
+          gameOverScreen.classList.remove('hidden');
+          gameOverScreen.classList.add('flex');
+          footerHint.classList.remove('hidden');
+        }
+      }
+
+      function resetRun() {
+        game.time = 0;
+        game.score = 0;
+        game.cubes = 0;
+        game.distance = 0;
+        game.shields = MAX_SHIELDS;
+        game.difficultyTier = 0;
+        game.speedMul = 1;
+        game.worldSpeed = 0.38;
+        game.gridScroll = 0;
+        game.spawnCubeTimer = 0.42;
+        game.spawnHazardTimer = 0.9;
+        game.spawnPatternTimer = 0.74;
+        game.player.lane = 0;
+        game.player.xLane = 0;
+        game.player.laneVel = 0;
+        game.player.hitCooldown = 0;
+        game.player.stuntWindow = 0;
+        game.player.bob = 0;
+        game.overclock.energy = 0;
+        game.overclock.ready = false;
+        game.overclock.active = false;
+        game.overclock.timer = 0;
+        game.overclock.intensity = 0;
+        game.drone.active = false;
+        game.drone.mode = 'horizon';
+        game.drone.lane = 0;
+        game.drone.xLane = 0;
+        game.drone.phase = 'idle';
+        game.drone.timer = 4.8;
+        game.drone.phaseDuration = 1;
+        game.drone.lockLane = 0;
+        game.drone.shotsLeft = 0;
+        game.drone.shotTimer = 0;
+        game.drone.cycles = 0;
+        game.drone.pulse = rand(0, TAU);
+        game.drone.exposure = 0;
+        game.drone.rearX = 0;
+        game.drone.rearY = 0;
+        game.camera.shake = 0;
+        game.camera.aberration = 0;
+        game.camera.damageFlash = 0;
+        game.camera.drift = 0;
+        game.ui.message = '';
+        game.ui.timer = 0;
+        resetPool(pools.cubes);
+        resetPool(pools.hazards);
+        resetPool(pools.projectiles);
+        resetPool(pools.particles);
+        resetPool(pools.texts);
+        updateHUD();
+        hideStatus();
+      }
+
+      function startGame() {
+        ensureAudio();
+        resetRun();
+        setState('PLAYING');
+        playFx('start');
+      }
+
+      function showMenu() {
+        resetRun();
+        setState('MENU');
+      }
+
+      function gameOver() {
+        finalCubes.textContent = String(game.cubes);
+        finalDistance.textContent = Math.floor(game.distance).toLocaleString() + ' m';
+        finalScore.textContent = Math.floor(game.score).toLocaleString();
+        finalChassis.textContent = CHASSIS[game.selectedChassis].name;
+        setState('GAME_OVER');
+      }
+
+      function ensureAudio() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        if (!audio.initialized) {
+          audio.ctx = new AudioContextClass();
+          audio.master = audio.ctx.createGain();
+          audio.master.gain.value = 0.0001;
+          audio.filter = audio.ctx.createBiquadFilter();
+          audio.filter.type = 'lowpass';
+          audio.filter.frequency.value = 900;
+          audio.filter.Q.value = 0.85;
+          audio.bassOsc = audio.ctx.createOscillator();
+          audio.leadOsc = audio.ctx.createOscillator();
+          audio.airOsc = audio.ctx.createOscillator();
+          audio.bassGain = audio.ctx.createGain();
+          audio.pulseGain = audio.ctx.createGain();
+          audio.airGain = audio.ctx.createGain();
+          audio.fxGain = audio.ctx.createGain();
+          audio.bassOsc.type = 'sawtooth';
+          audio.leadOsc.type = 'triangle';
+          audio.airOsc.type = 'sine';
+          audio.bassGain.gain.value = 0.018;
+          audio.pulseGain.gain.value = 0.012;
+          audio.airGain.gain.value = 0.005;
+          audio.fxGain.gain.value = 0.34;
+          audio.bassOsc.connect(audio.bassGain).connect(audio.filter);
+          audio.leadOsc.connect(audio.pulseGain).connect(audio.filter);
+          audio.airOsc.connect(audio.airGain).connect(audio.filter);
+          audio.filter.connect(audio.master).connect(audio.ctx.destination);
+          audio.fxGain.connect(audio.master);
+          audio.bassOsc.start();
+          audio.leadOsc.start();
+          audio.airOsc.start();
+          audio.initialized = true;
+        }
+        if (audio.ctx.state === 'suspended') audio.ctx.resume().catch(() => {});
+      }
+
+      function playFx(kind) {
+        if (!audio.initialized || !audio.ctx) return;
+        const now = audio.ctx.currentTime;
+        const osc = audio.ctx.createOscillator();
+        const gain = audio.ctx.createGain();
+        const filter = audio.ctx.createBiquadFilter();
+        let type = 'triangle';
+        let start = 220;
+        let end = 420;
+        let dur = 0.12;
+        let vol = 0.08;
+        let q = 1.2;
+        let ff = 1500;
+        if (kind === 'start') { type = 'triangle'; start = 180; end = 520; dur = 0.18; vol = 0.08; ff = 1800; }
+        else if (kind === 'cube') { type = 'triangle'; start = 520; end = 880; dur = 0.08; vol = 0.045; ff = 2200; q = 2.0; }
+        else if (kind === 'near') { type = 'sawtooth'; start = 300; end = 920; dur = 0.2; vol = 0.11; ff = 2200; q = 1.8; }
+        else if (kind === 'hit') { type = 'square'; start = 160; end = 56; dur = 0.18; vol = 0.16; ff = 900; q = 0.7; }
+        else if (kind === 'tier') { type = 'triangle'; start = 180; end = 380; dur = 0.14; vol = 0.08; ff = 1800; }
+        else if (kind === 'overclock') { type = 'sawtooth'; start = 200; end = 1180; dur = 0.34; vol = 0.16; ff = 2800; q = 2.8; }
+        else if (kind === 'droneSpawn') { type = 'sawtooth'; start = 120; end = 300; dur = 0.2; vol = 0.09; ff = 1100; }
+        else if (kind === 'droneShot') { type = 'square'; start = 620; end = 220; dur = 0.08; vol = 0.05; ff = 1500; q = 2.0; }
+        else if (kind === 'droneHit') { type = 'square'; start = 240; end = 82; dur = 0.16; vol = 0.12; ff = 900; q = 0.8; }
+        else if (kind === 'droneDown') { type = 'triangle'; start = 260; end = 980; dur = 0.26; vol = 0.13; ff = 2200; q = 2.0; }
+        osc.type = type;
+        filter.type = 'bandpass';
+        filter.frequency.value = ff;
+        filter.Q.value = q;
+        osc.frequency.setValueAtTime(start, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(24, end), now + dur);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc.connect(filter).connect(gain).connect(audio.fxGain);
+        osc.start(now);
+        osc.stop(now + dur + 0.03);
+      }
+
+      function updateAudio(dt) {
+        if (!audio.initialized || !audio.ctx) return;
+        const now = audio.ctx.currentTime;
+        const playing = game.state === 'PLAYING';
+        const drive = playing ? game.speedMul : 0.75;
+        const tempo = playing ? 1.2 + game.difficultyTier * 0.12 + drive * 0.44 + (game.overclock.active ? 1.5 : 0) : 0.5;
+        audio.phase = (audio.phase + dt * tempo * TAU) % TAU;
+        const beat = Math.pow(0.5 + 0.5 * Math.sin(audio.phase), playing ? 4.2 : 7.2);
+        const master = playing ? 0.24 : game.state === 'MENU' ? 0.08 : 0.035;
+        const bassFreq = playing ? 62 + drive * 16 + (game.overclock.active ? 28 : 0) : 52;
+        const leadFreq = playing ? 176 + drive * 34 + beat * 56 + (game.overclock.active ? 118 : 0) : 118;
+        const airFreq = playing ? leadFreq * 2.1 : 240;
+        audio.master.gain.setTargetAtTime(master, now, 0.12);
+        audio.bassOsc.frequency.setTargetAtTime(bassFreq, now, 0.06);
+        audio.leadOsc.frequency.setTargetAtTime(leadFreq, now, 0.04);
+        audio.airOsc.frequency.setTargetAtTime(airFreq, now, 0.04);
+        audio.bassGain.gain.setTargetAtTime(playing ? 0.028 : 0.015, now, 0.08);
+        audio.pulseGain.gain.setTargetAtTime((playing ? 0.017 : 0.005) + beat * (game.overclock.active ? 0.18 : 0.11), now, 0.02);
+        audio.airGain.gain.setTargetAtTime(playing ? 0.007 + beat * 0.008 + (game.overclock.active ? 0.012 : 0) : 0.003, now, 0.05);
+        audio.filter.frequency.setTargetAtTime(playing ? 760 + drive * 160 + beat * 260 + (game.overclock.active ? 1500 : 0) : 520, now, 0.06);
+        audio.filter.Q.setTargetAtTime(playing ? 0.85 + drive * 0.08 + (game.overclock.active ? 2.4 : 0) : 0.4, now, 0.05);
+      }
+
+      function addText(x, y, text, color, scale, life, rise) {
+        const t = acquire(pools.texts);
+        if (!t) return;
+        t.x = x;
+        t.y = y;
+        t.text = text;
+        t.color = color;
+        t.scale = scale;
+        t.life = life;
+        t.rise = rise;
+      }
+
+      function burst(x, y, color, count, fast, star) {
+        for (let i = 0; i < count; i++) {
+          const p = acquire(pools.particles);
+          if (!p) return;
+          const angle = rand(0, TAU);
+          const speed = rand(fast ? 80 : 28, fast ? 260 : 150);
+          p.x = x;
+          p.y = y;
+          p.vx = Math.cos(angle) * speed;
+          p.vy = Math.sin(angle) * speed - rand(10, 70);
+          p.life = rand(0.3, fast ? 0.95 : 0.72);
+          p.maxLife = p.life;
+          p.size = rand(1.4, fast ? 5.2 : 4.0);
+          p.glow = fast ? 20 : 14;
+          p.color = color;
+          p.drag = fast ? 0.94 : 0.965;
+          p.star = star ? 1 : 0;
+        }
+      }
+
+      function rainbowBurst(x, y, count) {
+        const rainbow = ['#ff5a66', '#ffd86b', '#78ff98', '#72fbff', '#b07cff', '#ff6be6'];
+        for (let i = 0; i < count; i++) {
+          const p = acquire(pools.particles);
+          if (!p) return;
+          const angle = rand(0, TAU);
+          const speed = rand(70, 260);
+          p.x = x;
+          p.y = y;
+          p.vx = Math.cos(angle) * speed + rand(-20, 20);
+          p.vy = Math.sin(angle) * speed - rand(10, 80);
+          p.life = rand(0.42, 1.0);
+          p.maxLife = p.life;
+          p.size = rand(1.6, 5.2);
+          p.glow = 18;
+          p.color = rainbow[i % rainbow.length];
+          p.drag = 0.94;
+          p.star = 1;
+        }
+      }
+
+      function spawnCube(lane, depth) {
+        const obj = acquire(pools.cubes);
+        if (!obj) return;
+        obj.lane = lane;
+        obj.depth = depth;
+        obj.rot = rand(0, TAU);
+        obj.spin = rand(-2.8, 2.8);
+        obj.pulse = rand(0, TAU);
+        obj.size = rand(0.9, 1.14);
+        obj.hit = 0;
+      }
+
+      function spawnHazard(lane, depth) {
+        const obj = acquire(pools.hazards);
+        if (!obj) return;
+        obj.lane = lane;
+        obj.depth = depth;
+        obj.pulse = rand(0, TAU);
+        obj.size = rand(0.92, 1.14);
+        obj.near = 0;
+        obj.hit = 0;
+        obj.vapor = 0;
+      }
+
+      function spawnProjectile(lane) {
+        const obj = acquire(pools.projectiles);
+        if (!obj) return;
+        obj.lane = lane;
+        obj.depth = 0.03;
+        obj.pulse = rand(0, TAU);
+        obj.size = 1;
+        obj.hit = 0;
+        obj.vapor = 0;
+      }
+
+      function setEnergy(value) {
+        game.overclock.energy = clamp(value, 0, 100);
+        game.overclock.ready = !game.overclock.active && game.overclock.energy >= 100;
+      }
+
+      function addEnergy(amount) {
+        setEnergy(game.overclock.energy + amount);
+      }
+
+      function collectCube(obj) {
+        deactivate(obj);
+        game.cubes += 1;
+        game.score += 100;
+        addEnergy(10);
+        projectInto(obj.lane, 0.9, tempProjA);
+        addText(tempProjA.x, tempProjA.y - 20, '+100', '#72fbff', 1.0, 0.8, 42);
+        burst(tempProjA.x, tempProjA.y, CHASSIS[game.selectedChassis].beam, 16, false, false);
+        playFx('cube');
+      }
+
+      function triggerNearMiss(obj) {
+        if (obj.near) return;
+        obj.near = 1;
+        game.score += 500;
+        addEnergy(25);
+        getShipScreenPosition(shipScreen);
+        addText(shipScreen.x, shipScreen.y - 78, 'NEAR MISS!', '#ffd86b', 1.18, 0.95, 48);
+        addText(shipScreen.x, shipScreen.y - 46, '+500', '#ff89ea', 1.02, 0.85, 38);
+        game.camera.shake = Math.max(game.camera.shake, 6);
+        playFx('near');
+      }
+
+      function hitPlayer(reason) {
+        if (game.player.hitCooldown > 0 || game.state !== 'PLAYING') return;
+        game.shields -= 1;
+        game.player.hitCooldown = 0.85;
+        game.camera.shake = Math.max(game.camera.shake, 12);
+        game.camera.aberration = Math.max(game.camera.aberration, 1.0);
+        game.camera.damageFlash = 1.0;
+        getShipScreenPosition(shipScreen);
+        burst(shipScreen.x, shipScreen.y - 8, reason === 'drone' ? '#b07cff' : '#ff445f', 28, true, false);
+        if (reason === 'drone') {
+          showStatus('WARNING: HUNTER STRIKE', 'danger', 0.85);
+          playFx('droneHit');
+        } else {
+          showStatus('WARNING: FIREWALL BREACH', 'danger', 0.85);
+          playFx('hit');
+        }
+        if (game.shields <= 0) {
+          gameOver();
+        }
+      }
+
+      function activateOverclock() {
+        if (!game.overclock.ready || game.overclock.active || game.state !== 'PLAYING') return;
+        game.overclock.active = true;
+        game.overclock.ready = false;
+        game.overclock.timer = 10;
+        game.overclock.intensity = 1;
+        setEnergy(0);
+        showStatus('OVERCLOCK ACTIVATED', 'info', 1.2);
+        playFx('overclock');
+      }
+
+      function spawnPattern() {
+        let freeLaneMask = 0;
+        for (let i = 0; i < 3; i++) {
+          const lane = LANES[i];
+          if (!laneOccupiedAhead(lane, 0.02, 0.2)) freeLaneMask |= (1 << (i + 1));
+        }
+        let cubeLane = choose(LANES);
+        if ((freeLaneMask & (1 << (cubeLane + 1))) === 0) cubeLane = firstFreeLane();
+        spawnCube(cubeLane, rand(0.0, 0.04));
+        if (Math.random() < 0.42) {
+          let secondLane = choose(LANES);
+          if (secondLane === cubeLane || laneOccupiedAhead(secondLane, 0.02, 0.18)) secondLane = altFreeLane(cubeLane);
+          if (secondLane !== 99) spawnCube(secondLane, rand(0.03, 0.07));
+        }
+
+        let hazardLane = choose(LANES);
+        if (game.drone.active && (game.drone.phase === 'aim' || game.drone.phase === 'fire') && Math.random() < 0.62) {
+          while (hazardLane === game.drone.lockLane) hazardLane = choose(LANES);
+        }
+        if (!laneOccupiedAhead(hazardLane, 0.0, 0.22)) spawnHazard(hazardLane, rand(0.02, 0.06));
+      }
+
+      function laneOccupiedAhead(lane, minDepth, maxDepth) {
+        const cubes = pools.cubes.items;
+        for (let i = 0; i < cubes.length; i++) {
+          const obj = cubes[i];
+          if (obj.active && obj.lane === lane && obj.depth >= minDepth && obj.depth <= maxDepth) return true;
+        }
+        const hazards = pools.hazards.items;
+        for (let i = 0; i < hazards.length; i++) {
+          const obj = hazards[i];
+          if (obj.active && obj.lane === lane && obj.depth >= minDepth && obj.depth <= maxDepth) return true;
+        }
+        return false;
+      }
+
+      function firstFreeLane() {
+        for (let i = 0; i < 3; i++) if (!laneOccupiedAhead(LANES[i], 0.0, 0.2)) return LANES[i];
+        return 0;
+      }
+
+      function altFreeLane(exclude) {
+        for (let i = 0; i < 3; i++) {
+          const lane = LANES[i];
+          if (lane !== exclude && !laneOccupiedAhead(lane, 0.0, 0.2)) return lane;
+        }
+        return 99;
+      }
+
+      function spawnHunterDrone() {
+        const d = game.drone;
+        getShipScreenPosition(shipScreen);
+        d.active = true;
+        d.mode = Math.random() < 0.62 ? 'horizon' : 'rear';
+        d.lane = choose(LANES);
+        d.xLane = d.lane;
+        d.phase = 'enter';
+        d.timer = d.mode === 'rear' ? 1.4 : 1.0;
+        d.phaseDuration = d.timer;
+        d.lockLane = 0;
+        d.shotsLeft = 0;
+        d.shotTimer = 0;
+        d.cycles = 2 + (game.difficultyTier >= 4 ? 1 : 0);
+        d.pulse = rand(0, TAU);
+        d.exposure = 0;
+        d.rearX = shipScreen.x + rand(-120, 120);
+        d.rearY = shipScreen.y + 120;
+        showStatus('CORRUPTED HUNTER DETECTED', 'danger', 0.8);
+        playFx('droneSpawn');
+      }
+
+      function removeDrone() {
+        game.drone.active = false;
+        game.drone.phase = 'idle';
+        game.drone.timer = rand(4.6, 7.2) / Math.min(2.1, 1 + game.difficultyTier * 0.08);
+        game.drone.exposure = 0;
+      }
+
+      function destroyDrone() {
+        getDroneScreenPosition(droneScreen);
+        rainbowBurst(droneScreen.x, droneScreen.y, 30);
+        addText(droneScreen.x, droneScreen.y - 14, 'DRONE DOWN +1000', '#ff95f1', 1.06, 0.95, 38);
+        game.score += 1000;
+        showStatus('HUNTER DRONE VAPORIZED', 'info', 0.95);
+        playFx('droneDown');
+        removeDrone();
+      }
+
+      function updateDrone(dt) {
+        const d = game.drone;
+        d.pulse += dt * 5.6;
+        if (!d.active) {
+          d.timer -= dt;
+          if (game.state === 'PLAYING' && game.distance > 220 && d.timer <= 0) spawnHunterDrone();
+          return;
+        }
+
+        d.xLane += (d.lane - d.xLane) * Math.min(1, dt * 4.5);
+
+        if (game.overclock.active) {
+          d.exposure += dt;
+          if (d.exposure >= 0.45) {
+            destroyDrone();
+            return;
+          }
+        } else {
+          d.exposure = 0;
+        }
+
+        if (d.phase === 'enter') {
+          d.timer -= dt;
+          if (d.timer <= 0) {
+            d.phase = 'aim';
+            d.timer = clamp(1.0 - game.difficultyTier * 0.025, 0.52, 1.0);
+            d.phaseDuration = d.timer;
+            d.lockLane = game.player.lane;
+          }
+          return;
+        }
+
+        if (d.phase === 'aim') {
+          d.lane += (d.lockLane - d.lane) * Math.min(1, dt * 3.0);
+          d.timer -= dt;
+          if (d.timer <= 0) {
+            d.phase = 'fire';
+            d.shotsLeft = 3 + (game.difficultyTier >= 5 ? 1 : 0);
+            d.shotTimer = 0;
+          }
+          return;
+        }
+
+        if (d.phase === 'fire') {
+          d.shotTimer -= dt;
+          if (d.shotsLeft > 0 && d.shotTimer <= 0) {
+            spawnProjectile(d.lockLane);
+            d.shotsLeft -= 1;
+            d.shotTimer = clamp(0.17 - game.difficultyTier * 0.004, 0.1, 0.17);
+            playFx('droneShot');
+          }
+          if (d.shotsLeft <= 0 && d.shotTimer <= 0) {
+            d.cycles -= 1;
+            if (d.cycles <= 0) {
+              d.phase = 'retreat';
+              d.timer = d.mode === 'rear' ? 0.9 : 1.0;
+              d.phaseDuration = d.timer;
+            } else {
+              d.phase = 'reposition';
+              d.timer = clamp(0.8 - game.difficultyTier * 0.02, 0.36, 0.8);
+              d.phaseDuration = d.timer;
+              d.lane = choose(LANES);
+            }
+          }
+          return;
+        }
+
+        if (d.phase === 'reposition') {
+          d.timer -= dt;
+          if (d.timer <= 0) {
+            d.phase = 'aim';
+            d.timer = clamp(0.94 - game.difficultyTier * 0.024, 0.48, 0.94);
+            d.phaseDuration = d.timer;
+            d.lockLane = game.player.lane;
+          }
+          return;
+        }
+
+        if (d.phase === 'retreat') {
+          d.timer -= dt;
+          if (d.timer <= 0) removeDrone();
+        }
+      }
+
+      function projectInto(lane, depth, out) {
+        const d = clamp(depth, 0, 1.18);
+        const horizonY = height * 0.28;
+        const floorY = height * 0.94;
+        const over = game.overclock.active ? 1 : 0;
+        const perspective = Math.pow(d, over ? 0.82 : 1.52);
+        let y = horizonY + (floorY - horizonY) * perspective;
+        if (over) {
+          y += Math.sin(game.time * 4.2 + d * 10.8) * 26 * (1 - d);
+          y -= Math.sin(game.time * 2.1 + d * 8.5) * 96 * Math.pow(1 - d, 2.25);
+        }
+        const nearWidth = width * (over ? 0.53 : 0.45);
+        const farWidth = width * 0.062;
+        const roadHalf = lerp(farWidth, nearWidth, Math.pow(d, over ? 0.94 : 1.14));
+        let centerX = width * 0.5 + getRoadSway(d) + Math.sin(game.time * 0.23) * 4;
+        if (over) {
+          centerX += Math.sin(game.time * 2.8 + d * 8) * width * 0.11 * (1 - d);
+          centerX += Math.sin(game.time * 4.4 + d * 16.4) * width * 0.022;
+        }
+        const laneSpacing = roadHalf * 0.62;
+        out.centerX = centerX;
+        out.halfRoad = roadHalf;
+        out.scale = lerp(0.12, over ? 1.78 : 1.28, perspective);
+        out.x = centerX + lane * laneSpacing;
+        out.y = y;
+      }
+
+      function getRoadSway(depth) {
+        const d = clamp(depth, 0, 1.15);
+        const amp = width * (0.012 + Math.min(0.04, game.difficultyTier * 0.0035) + (game.overclock.active ? 0.012 : 0));
+        const a = Math.sin(game.time * (0.92 + game.speedMul * 0.18) + d * 8.8);
+        const b = Math.sin(game.time * (1.55 + game.speedMul * 0.08) - d * 15.6 + 1.2) * 0.52;
+        const c = Math.sin(game.time * 0.46 + d * 3.2) * 0.22;
+        return (a + b + c) * amp * (0.28 + Math.pow(1 - d, 0.78));
+      }
+
+      function fillRoadArrays() {
+        for (let i = 0; i <= ROAD_SAMPLES; i++) {
+          const d = i / ROAD_SAMPLES;
+          projectInto(0, d, tempProjA);
+          roadLeftX[i] = tempProjA.centerX - tempProjA.halfRoad;
+          roadLeftY[i] = tempProjA.y;
+          roadRightX[i] = tempProjA.centerX + tempProjA.halfRoad;
+          roadRightY[i] = tempProjA.y;
+        }
+      }
+
+      function getShipScreenPosition(out) {
+        projectInto(game.player.xLane, 0.975, tempProjA);
+        out.x = tempProjA.x;
+        out.y = Math.min(height * 0.885, tempProjA.y + 8);
+        return out;
+      }
+
+      function getDroneScreenPosition(out) {
+        const d = game.drone;
+        projectInto(d.xLane, 0.08, tempProjB);
+        const targetX = tempProjB.x;
+        const targetY = tempProjB.y - 46 + Math.sin(game.time * 4.8 + d.pulse) * 8;
+        const targetScale = 0.74 + Math.sin(game.time * 2.8 + d.pulse) * 0.04;
+        if (!d.active) {
+          out.x = targetX;
+          out.y = targetY;
+          out.scale = targetScale;
+          return out;
+        }
+        if (d.phase === 'enter') {
+          const t = 1 - clamp(d.timer / Math.max(0.0001, d.phaseDuration), 0, 1);
+          const eased = 1 - (1 - t) * (1 - t);
+          if (d.mode === 'rear') {
+            out.x = lerp(d.rearX, targetX, eased);
+            out.y = lerp(d.rearY, targetY, eased);
+            out.scale = lerp(1.06, targetScale, eased);
+            return out;
+          }
+          out.x = targetX;
+          out.y = lerp(height * 0.02, targetY, eased);
+          out.scale = lerp(0.28, targetScale, eased);
+          return out;
+        }
+        if (d.phase === 'retreat') {
+          const t = 1 - clamp(d.timer / Math.max(0.0001, d.phaseDuration), 0, 1);
+          const eased = -(Math.cos(Math.PI * t) - 1) / 2;
+          if (d.mode === 'rear') {
+            getShipScreenPosition(shipScreen);
+            out.x = lerp(targetX, shipScreen.x + Math.sin(game.time * 4) * 40, eased);
+            out.y = lerp(targetY, shipScreen.y + 120, eased);
+            out.scale = lerp(targetScale, 1.08, eased);
+            return out;
+          }
+          out.x = targetX;
+          out.y = lerp(targetY, height * 0.01, eased);
+          out.scale = lerp(targetScale, 0.2, eased);
+          return out;
+        }
+        out.x = targetX;
+        out.y = targetY;
+        out.scale = targetScale;
+        return out;
+      }
+
+      function vaporizeHazard(obj, points) {
+        projectInto(obj.lane, clamp(obj.depth, 0, 1), tempProjA);
+        rainbowBurst(tempProjA.x, tempProjA.y, 26);
+        game.score += points;
+        addText(tempProjA.x, tempProjA.y - 16, '+' + points, '#ffd86b', 1.0, 0.75, 40);
+        deactivate(obj);
+      }
+
+      function updateGameplay(dt) {
+        game.time += dt;
+        game.player.bob += dt * (game.overclock.active ? 12 : 5.2);
+        game.camera.drift += dt * 0.5;
+        game.player.hitCooldown = Math.max(0, game.player.hitCooldown - dt);
+        game.player.stuntWindow = Math.max(0, game.player.stuntWindow - dt);
+        game.camera.shake = Math.max(0, game.camera.shake - dt * 20);
+        game.camera.aberration = Math.max(0, game.camera.aberration - dt * 4.6);
+        game.camera.damageFlash = Math.max(0, game.camera.damageFlash - dt * 3.2);
+        game.ui.timer = Math.max(0, game.ui.timer - dt);
+        if (game.ui.timer <= 0) hideStatus();
+
+        const accel = (game.player.lane - game.player.xLane) * 32 - game.player.laneVel * 12;
+        game.player.laneVel += accel * dt;
+        game.player.xLane += game.player.laneVel * dt;
+        game.player.xLane = clamp(game.player.xLane, -1.12, 1.12);
+
+        const nextTier = Math.floor(game.distance / 500);
+        if (nextTier > game.difficultyTier) {
+          game.difficultyTier = nextTier;
+          game.speedMul = Math.pow(1.15, game.difficultyTier);
+          showStatus('GRID VELOCITY +15%', 'info', 0.8);
+          playFx('tier');
+        }
+
+        game.worldSpeed = 0.26 + game.speedMul * 0.11 + (game.overclock.active ? 0.36 : 0);
+        game.gridScroll = (game.gridScroll + dt * game.worldSpeed * (game.overclock.active ? 2.02 : 1.16)) % 1;
+        game.distance += dt * (60 * game.speedMul * (game.overclock.active ? 1.28 : 1));
+
+        if (game.overclock.active) {
+          game.overclock.timer -= dt;
+          game.overclock.intensity = Math.min(1, game.overclock.intensity + dt * 2.6);
+          if (game.overclock.timer <= 0) {
+            game.overclock.active = false;
+            game.overclock.timer = 0;
+            game.overclock.intensity = 0;
+            showStatus('OVERCLOCK DEPLETED', 'info', 0.8);
+          }
+        } else {
+          game.overclock.intensity = Math.max(0, game.overclock.intensity - dt * 3.2);
+        }
+
+        updateDrone(dt);
+
+        const spawnScale = Math.min(2.9, 1 + (game.speedMul - 1) * 0.46);
+        const cubeInterval = clamp(0.82 / spawnScale, 0.28, 0.82);
+        const hazardInterval = clamp(1.0 / spawnScale, 0.4, 1.0);
+        const patternInterval = clamp(0.86 / spawnScale, 0.34, 0.86);
+
+        game.spawnCubeTimer -= dt;
+        game.spawnHazardTimer -= dt;
+        game.spawnPatternTimer -= dt;
+
+        if (game.spawnPatternTimer <= 0) {
+          spawnPattern();
+          game.spawnPatternTimer = patternInterval + rand(0.02, 0.14);
+        }
+        if (game.spawnCubeTimer <= 0) {
+          let lane = choose(LANES);
+          if (laneOccupiedAhead(lane, 0, 0.14)) lane = firstFreeLane();
+          spawnCube(lane, rand(0.0, 0.03));
+          game.spawnCubeTimer = cubeInterval + rand(0.0, 0.12);
+        }
+        if (game.spawnHazardTimer <= 0) {
+          let lane = choose(LANES);
+          if (game.drone.active && (game.drone.phase === 'aim' || game.drone.phase === 'fire') && Math.random() < 0.58) {
+            while (lane === game.drone.lockLane) lane = choose(LANES);
+          }
+          if (!laneOccupiedAhead(lane, 0, 0.16)) spawnHazard(lane, rand(0.01, 0.05));
+          game.spawnHazardTimer = hazardInterval + rand(0.02, 0.18);
+        }
+
+        const cubeAdvance = dt * (0.31 + game.speedMul * 0.085 + (game.overclock.active ? 0.22 : 0));
+        const hazardAdvance = dt * (0.34 + game.speedMul * 0.09 + (game.overclock.active ? 0.24 : 0));
+        const projectileAdvance = dt * (0.46 + game.speedMul * 0.16 + (game.overclock.active ? 0.26 : 0));
+
+        const cubes = pools.cubes.items;
+        for (let i = 0; i < cubes.length; i++) {
+          const obj = cubes[i];
+          if (!obj.active) continue;
+          obj.depth += cubeAdvance;
+          obj.pulse += dt * 2.8;
+          obj.rot += dt * obj.spin;
+          const laneDist = Math.abs(obj.lane - game.player.xLane);
+          if (obj.depth >= 0.86 && laneDist < 0.34) {
+            collectCube(obj);
+            continue;
+          }
+          if (obj.depth > 1.18) deactivate(obj);
+        }
+
+        const hazards = pools.hazards.items;
+        for (let i = 0; i < hazards.length; i++) {
+          const obj = hazards[i];
+          if (!obj.active) continue;
+          obj.depth += hazardAdvance;
+          obj.pulse += dt * 8.8;
+          const laneDist = Math.abs(obj.lane - game.player.xLane);
+          if (!obj.near && obj.depth >= 0.82 && obj.depth <= 0.95 && laneDist > 0.72 && laneDist < 1.22 && game.player.stuntWindow > 0.04) {
+            triggerNearMiss(obj);
+          }
+          if (game.overclock.active && obj.depth > 0.16) {
+            vaporizeHazard(obj, 250);
+            continue;
+          }
+          if (!obj.hit && obj.depth >= 0.84 && laneDist < 0.34) {
+            obj.hit = 1;
+            hitPlayer('hazard');
+            deactivate(obj);
+            continue;
+          }
+          if (obj.depth > 1.18) deactivate(obj);
+        }
+
+        const projectiles = pools.projectiles.items;
+        for (let i = 0; i < projectiles.length; i++) {
+          const obj = projectiles[i];
+          if (!obj.active) continue;
+          obj.depth += projectileAdvance;
+          obj.pulse += dt * 12.4;
+          const laneDist = Math.abs(obj.lane - game.player.xLane);
+          if (game.overclock.active && obj.depth > 0.14) {
+            projectInto(obj.lane, obj.depth, tempProjA);
+            rainbowBurst(tempProjA.x, tempProjA.y, 18);
+            game.score += 150;
+            addText(tempProjA.x, tempProjA.y - 16, '+150', '#ffd86b', 0.98, 0.72, 38);
+            deactivate(obj);
+            continue;
+          }
+          if (!obj.hit && obj.depth >= 0.84 && laneDist < 0.31) {
+            obj.hit = 1;
+            hitPlayer('drone');
+            deactivate(obj);
+            continue;
+          }
+          if (obj.depth > 1.18) deactivate(obj);
+        }
+
+        const particles = pools.particles.items;
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          if (!p.active) continue;
+          p.life -= dt;
+          if (p.life <= 0) {
+            deactivate(p);
+            continue;
+          }
+          p.vx *= p.drag;
+          p.vy = p.vy * p.drag + 60 * dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+        }
+
+        const texts = pools.texts.items;
+        for (let i = 0; i < texts.length; i++) {
+          const t = texts[i];
+          if (!t.active) continue;
+          t.life -= dt;
+          if (t.life <= 0) {
+            deactivate(t);
+            continue;
+          }
+          t.y -= t.rise * dt;
+        }
+
+        for (let i = 0; i < microParticles.length; i++) {
+          const p = microParticles[i];
+          p.z += dt * (p.speed * (game.state === 'PLAYING' ? 1 + game.speedMul * 0.2 + (game.overclock.active ? 0.7 : 0) : 0.2));
+          if (p.z > 1.15) {
+            p.z = rand(0.06, 0.2);
+            p.x = rand(-1.2, 1.2);
+            p.y = rand(0.04, 1.04);
+            p.alpha = rand(0.08, 0.45);
+            p.size = rand(0.6, 1.8);
+          }
+        }
+
+        updateHUD();
+      }
+
+      function updateMenu(dt) {
+        game.time += dt;
+        game.camera.drift += dt * 0.34;
+        game.gridScroll = (game.gridScroll + dt * 0.06) % 1;
+        game.player.xLane = Math.sin(game.time * 0.52) * 0.28;
+        game.ui.timer = Math.max(0, game.ui.timer - dt);
+        if (game.ui.timer <= 0) hideStatus();
+        for (let i = 0; i < microParticles.length; i++) {
+          const p = microParticles[i];
+          p.z += dt * p.speed * 0.12;
+          if (p.z > 1.15) {
+            p.z = rand(0.06, 0.2);
+            p.x = rand(-1.2, 1.2);
+            p.y = rand(0.04, 1.04);
+          }
+        }
+      }
+
+      function updateGameOver(dt) {
+        game.time += dt;
+        game.camera.drift += dt * 0.26;
+        game.gridScroll = (game.gridScroll + dt * 0.05) % 1;
+        game.player.xLane *= Math.max(0, 1 - dt * 1.8);
+        game.camera.shake = Math.max(0, game.camera.shake - dt * 18);
+        game.camera.aberration = Math.max(0, game.camera.aberration - dt * 2.6);
+        game.camera.damageFlash = Math.max(0, game.camera.damageFlash - dt * 2.1);
+        for (let i = 0; i < microParticles.length; i++) {
+          const p = microParticles[i];
+          p.z += dt * p.speed * 0.14;
+          if (p.z > 1.15) {
+            p.z = rand(0.06, 0.2);
+            p.x = rand(-1.2, 1.2);
+            p.y = rand(0.04, 1.04);
+          }
+        }
+      }
+
+      function updateHUD() {
+        hudCubes.textContent = game.cubes.toLocaleString();
+        hudDistance.textContent = Math.floor(game.distance).toLocaleString() + ' m';
+        hudEnergyText.textContent = Math.round(game.overclock.energy) + '%';
+        hudEnergyFill.style.width = game.overclock.energy + '%';
+        for (let i = 0; i < shieldDots.length; i++) {
+          if (i < game.shields) {
+            shieldDots[i].style.background = 'linear-gradient(180deg, #ffd86b, #ff4bd6)';
+            shieldDots[i].style.boxShadow = '0 0 12px rgba(255,216,107,0.75), 0 0 18px rgba(255,75,214,0.45)';
+            shieldDots[i].style.borderColor = 'rgba(255,255,255,0.38)';
+          } else {
+            shieldDots[i].style.background = 'rgba(255,255,255,0.1)';
+            shieldDots[i].style.boxShadow = 'inset 0 0 10px rgba(0,0,0,0.35)';
+            shieldDots[i].style.borderColor = 'rgba(255,255,255,0.16)';
+          }
+        }
+        if (game.overclock.ready && !game.overclock.active && game.state === 'PLAYING' && game.ui.timer <= 0) {
+          if (game.ui.message !== 'OVERCLOCK READY [PRESS SPACEBAR]') {
+            showStatus('OVERCLOCK READY [PRESS SPACEBAR]', 'info', 0.12);
+          }
+        }
+      }
+
+      function drawBackground(g) {
+        g.fillStyle = '#04020a';
+        g.fillRect(0, 0, width, height);
+
+        const sky = g.createLinearGradient(0, 0, 0, height);
+        sky.addColorStop(0, '#140420');
+        sky.addColorStop(0.34, '#10031f');
+        sky.addColorStop(0.72, '#06010f');
+        sky.addColorStop(1, '#020107');
+        g.fillStyle = sky;
+        g.fillRect(0, 0, width, height);
+
+        const haze = g.createRadialGradient(width * 0.5, height * 0.26, 10, width * 0.5, height * 0.28, Math.max(width, height) * 0.55);
+        haze.addColorStop(0, 'rgba(255,75,214,0.18)');
+        haze.addColorStop(0.25, 'rgba(176,124,255,0.12)');
+        haze.addColorStop(0.58, 'rgba(114,251,255,0.06)');
+        haze.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = haze;
+        g.fillRect(0, 0, width, height);
+
+        for (let i = 0; i < stars.length; i++) {
+          const s = stars[i];
+          const shift = game.state === 'PLAYING' ? -game.player.xLane * (14 + s.speed * 180) : Math.sin(game.time * 0.4) * 10;
+          const x = (s.x * width + shift * s.speed + width) % width;
+          const y = ((s.y + game.time * s.speed * 0.01) % 1) * height;
+          const alpha = 0.4 + 0.55 * (0.5 + Math.sin(game.time * 1.4 + s.twinkle) * 0.5);
+          g.fillStyle = `hsla(${s.hue},100%,78%,${alpha})`;
+          g.beginPath();
+          g.arc(x, y, s.size * (1 + alpha * 0.25), 0, TAU);
+          g.fill();
+        }
+      }
+
+      function drawSun(g) {
+        const horizonY = height * 0.28;
+        const pulse = 1 + Math.sin(game.time * (game.overclock.active ? 8 : 2 + game.speedMul * 0.18)) * (game.overclock.active ? 0.06 : 0.02 + Math.min(0.07, game.difficultyTier * 0.003));
+        const radius = Math.min(width, height) * (0.13 + (game.overclock.active ? 0.03 : 0)) * pulse;
+        const x = width * 0.5 + getRoadSway(0.02) * 0.08 - game.player.xLane * 24;
+        const y = horizonY + 4;
+
+        const outer = g.createRadialGradient(x, y, 0, x, y, radius * 1.45);
+        outer.addColorStop(0, 'rgba(255,166,136,0.24)');
+        outer.addColorStop(0.55, 'rgba(255,75,214,0.18)');
+        outer.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = outer;
+        g.beginPath();
+        g.arc(x, y, radius * 1.45, 0, TAU);
+        g.fill();
+
+        g.save();
+        g.beginPath();
+        g.arc(x, y, radius, 0, TAU);
+        g.clip();
+        const sun = g.createLinearGradient(0, y - radius, 0, y + radius);
+        sun.addColorStop(0, '#fff1c4');
+        sun.addColorStop(0.26, '#ffb47d');
+        sun.addColorStop(0.56, '#ff5fc9');
+        sun.addColorStop(1, '#ff2f7e');
+        g.fillStyle = sun;
+        g.beginPath();
+        g.arc(x, y, radius, 0, TAU);
+        g.fill();
+        g.strokeStyle = `rgba(255,245,251,${0.14 + (game.overclock.active ? 0.12 : 0)})`;
+        g.lineWidth = 1.15;
+        for (let i = 0; i < 10; i++) {
+          const yy = y - radius + (i + 1) * (radius * 2 / 11);
+          const gap = Math.sin(game.time * 0.8 + i * 0.6) * (game.overclock.active ? 18 : 6 + game.difficultyTier * 0.5);
+          g.beginPath();
+          g.moveTo(x - radius, yy + gap * 0.03);
+          g.lineTo(x + radius, yy - gap * 0.03);
+          g.stroke();
+        }
+        g.restore();
+
+        g.save();
+        g.globalCompositeOperation = 'screen';
+        g.strokeStyle = game.overclock.active ? 'rgba(255,250,255,0.92)' : 'rgba(255,173,220,0.72)';
+        g.shadowColor = 'rgba(255,75,214,0.95)';
+        g.shadowBlur = game.overclock.active ? 24 : 16;
+        g.lineWidth = game.overclock.active ? 3 : 2;
+        g.beginPath();
+        g.arc(x, y, radius, 0, TAU);
+        g.stroke();
+        g.restore();
+      }
+
+      function drawSkyline(g) {
+        const horizonY = height * 0.28;
+        const baseY = horizonY + 38;
+        const shift = -game.player.xLane * 28 + Math.sin(game.time * 0.32) * 5 + getRoadSway(0.08) * 0.08;
+        g.save();
+        g.translate(shift, 0);
+        for (let i = 0; i < skyline.length; i++) {
+          const b = skyline[i];
+          const x = b.x * width;
+          const w = b.w * width;
+          const h = b.h * height;
+          const top = baseY - h;
+          g.fillStyle = 'rgba(8,14,30,0.35)';
+          g.strokeStyle = 'rgba(114,251,255,0.34)';
+          g.lineWidth = 1;
+          g.beginPath();
+          g.moveTo(x, baseY);
+          g.lineTo(x, top + b.notch * height);
+          g.lineTo(x + w * 0.35, top + b.notch * height);
+          g.lineTo(x + w * 0.35, top);
+          g.lineTo(x + w * 0.68, top);
+          g.lineTo(x + w * 0.68, top + b.notch * height);
+          g.lineTo(x + w, top + b.notch * height);
+          g.lineTo(x + w, baseY);
+          g.closePath();
+          g.fill();
+          g.stroke();
+          if (b.antenna > 0) {
+            g.beginPath();
+            g.moveTo(x + w * 0.52, top);
+            g.lineTo(x + w * 0.52, top - b.antenna * height);
+            g.stroke();
+          }
+          for (let j = 1; j < b.windows; j++) {
+            const wy = top + (h / (b.windows + 1)) * j;
+            g.strokeStyle = 'rgba(255,82,210,0.18)';
+            g.beginPath();
+            g.moveTo(x + 3, wy);
+            g.lineTo(x + w - 3, wy);
+            g.stroke();
+          }
+        }
+        g.restore();
+      }
+
+      function drawMicroParticles(g) {
+        g.save();
+        g.globalCompositeOperation = 'screen';
+        for (let i = 0; i < microParticles.length; i++) {
+          const p = microParticles[i];
+          const scale = 0.25 + p.z * 1.3;
+          const x = width * 0.5 + p.x * width * 0.42 * scale + Math.sin(game.camera.drift * 0.9 + p.z * 4) * 3;
+          const y = height * (p.y * scale);
+          const len = p.size * (4 + p.z * 12) * (game.state === 'PLAYING' ? 1 + game.speedMul * 0.08 : 1);
+          const alpha = p.alpha * (0.2 + p.z * 0.9);
+          g.strokeStyle = `rgba(114,251,255,${alpha})`;
+          g.lineWidth = p.size * scale;
+          g.beginPath();
+          g.moveTo(x, y);
+          g.lineTo(x, y + len);
+          g.stroke();
+        }
+        g.restore();
+      }
+
+      function drawRoad(g) {
+        fillRoadArrays();
+        const roadGradient = g.createLinearGradient(0, height * 0.28, 0, height);
+        roadGradient.addColorStop(0, 'rgba(26,7,42,0.86)');
+        roadGradient.addColorStop(0.52, game.overclock.active ? 'rgba(30,7,54,0.94)' : 'rgba(15,6,30,0.92)');
+        roadGradient.addColorStop(1, 'rgba(6,4,14,0.98)');
+        g.fillStyle = roadGradient;
+        g.beginPath();
+        g.moveTo(roadLeftX[0], roadLeftY[0]);
+        for (let i = 1; i <= ROAD_SAMPLES; i++) g.lineTo(roadLeftX[i], roadLeftY[i]);
+        for (let i = ROAD_SAMPLES; i >= 0; i--) g.lineTo(roadRightX[i], roadRightY[i]);
+        g.closePath();
+        g.fill();
+
+        g.save();
+        g.globalCompositeOperation = 'screen';
+        g.strokeStyle = `rgba(255,75,214,${game.overclock.active ? 0.62 : 0.34})`;
+        g.shadowColor = 'rgba(255,75,214,0.82)';
+        g.shadowBlur = game.overclock.active ? 24 : 12;
+        g.lineWidth = game.overclock.active ? 3 : 2;
+        g.beginPath();
+        g.moveTo(roadLeftX[0], roadLeftY[0]);
+        for (let i = 1; i <= ROAD_SAMPLES; i++) g.lineTo(roadLeftX[i], roadLeftY[i]);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(roadRightX[0], roadRightY[0]);
+        for (let i = 1; i <= ROAD_SAMPLES; i++) g.lineTo(roadRightX[i], roadRightY[i]);
+        g.stroke();
+        g.restore();
+
+        const gridLines = 36;
+        for (let i = 0; i < gridLines; i++) {
+          const d = (i / gridLines + game.gridScroll) % 1;
+          projectInto(0, d, tempProjA);
+          const left = tempProjA.centerX - tempProjA.halfRoad;
+          const right = tempProjA.centerX + tempProjA.halfRoad;
+          const alpha = 0.11 + Math.pow(d, 0.72) * (game.overclock.active ? 0.92 : 0.52);
+          g.save();
+          g.globalCompositeOperation = 'screen';
+          g.strokeStyle = `rgba(114,251,255,${alpha})`;
+          g.shadowColor = 'rgba(114,251,255,0.7)';
+          g.shadowBlur = d > 0.65 ? 12 : 0;
+          g.lineWidth = 1 + d * (game.overclock.active ? 4 : 2.2);
+          g.beginPath();
+          g.moveTo(left, tempProjA.y);
+          g.lineTo(right, tempProjA.y);
+          g.stroke();
+          g.restore();
+        }
+
+        for (let i = 0; i < 2; i++) {
+          const offset = i === 0 ? -0.333 : 0.333;
+          g.save();
+          g.globalCompositeOperation = 'screen';
+          g.strokeStyle = game.overclock.active ? 'rgba(114,251,255,0.92)' : 'rgba(114,251,255,0.48)';
+          g.shadowColor = 'rgba(114,251,255,0.82)';
+          g.shadowBlur = game.overclock.active ? 22 : 10;
+          g.lineWidth = game.overclock.active ? 2.8 : 1.6;
+          g.beginPath();
+          for (let s = 0; s <= ROAD_SAMPLES; s++) {
+            const d = s / ROAD_SAMPLES;
+            projectInto(offset, d, tempProjA);
+            if (s === 0) g.moveTo(tempProjA.x, tempProjA.y);
+            else g.lineTo(tempProjA.x, tempProjA.y);
+          }
+          g.stroke();
+          g.restore();
+        }
+      }
+
+      function drawCube(g, obj) {
+        projectInto(obj.lane, obj.depth, tempProjA);
+        const size = (16 + obj.size * 24) * tempProjA.scale;
+        const rot = obj.rot;
+        const glow = 0.6 + Math.sin(obj.pulse) * 0.4;
+        const front = size * 0.5;
+        const offsetX = Math.cos(rot * 1.5) * size * 0.22;
+        const offsetY = -Math.sin(rot * 1.3) * size * 0.22;
+        g.save();
+        g.translate(tempProjA.x, tempProjA.y);
+        g.rotate(rot);
+        g.globalCompositeOperation = 'screen';
+        g.shadowColor = 'rgba(114,251,255,0.9)';
+        g.shadowBlur = 16 * tempProjA.scale + 10;
+        g.strokeStyle = 'rgba(185,255,255,0.96)';
+        g.lineWidth = Math.max(1.1, 2.2 * tempProjA.scale);
+        g.fillStyle = `rgba(0,224,255,${0.16 + glow * 0.18})`;
+        g.beginPath();
+        g.rect(-front, -front, size, size);
+        g.fill();
+        g.stroke();
+        g.beginPath();
+        g.moveTo(-front, -front);
+        g.lineTo(-front + offsetX, -front + offsetY);
+        g.lineTo(front + offsetX, -front + offsetY);
+        g.lineTo(front, -front);
+        g.closePath();
+        g.fillStyle = `rgba(185,255,255,${0.16 + glow * 0.16})`;
+        g.fill();
+        g.stroke();
+        g.beginPath();
+        g.moveTo(front, -front);
+        g.lineTo(front + offsetX, -front + offsetY);
+        g.lineTo(front + offsetX, front + offsetY);
+        g.lineTo(front, front);
+        g.closePath();
+        g.fillStyle = `rgba(0,181,255,${0.12 + glow * 0.18})`;
+        g.fill();
+        g.stroke();
+        g.restore();
+      }
+
+      function drawHazard(g, obj) {
+        projectInto(obj.lane, obj.depth, tempProjA);
+        const laneHalf = tempProjA.halfRoad * 0.28 * obj.size;
+        const beamH = Math.max(6, 14 * tempProjA.scale);
+        const pulse = 0.55 + 0.45 * Math.sin(obj.pulse);
+        g.save();
+        g.translate(tempProjA.x, tempProjA.y);
+        g.globalCompositeOperation = 'screen';
+        g.shadowColor = 'rgba(255,68,95,0.94)';
+        g.shadowBlur = 22 * pulse;
+        const grad = g.createLinearGradient(-laneHalf, 0, laneHalf, 0);
+        grad.addColorStop(0, 'rgba(255,95,95,0.18)');
+        grad.addColorStop(0.18, 'rgba(255,68,95,0.95)');
+        grad.addColorStop(0.5, 'rgba(255,244,244,1)');
+        grad.addColorStop(0.82, 'rgba(255,68,95,0.95)');
+        grad.addColorStop(1, 'rgba(255,95,95,0.18)');
+        g.fillStyle = grad;
+        g.fillRect(-laneHalf, -beamH * 0.5, laneHalf * 2, beamH);
+        g.fillStyle = 'rgba(255,68,95,0.32)';
+        g.fillRect(-laneHalf - 4 * tempProjA.scale, -beamH, 8 * tempProjA.scale, beamH * 2);
+        g.fillRect(laneHalf - 4 * tempProjA.scale, -beamH, 8 * tempProjA.scale, beamH * 2);
+        g.strokeStyle = 'rgba(255,236,236,0.92)';
+        g.lineWidth = Math.max(1.1, 1.8 * tempProjA.scale);
+        g.beginPath();
+        g.moveTo(-laneHalf, 0);
+        g.lineTo(laneHalf, 0);
+        g.stroke();
+        g.restore();
+      }
+
+      function drawProjectile(g, obj) {
+        projectInto(obj.lane, obj.depth, tempProjA);
+        const len = Math.max(10, 28 * tempProjA.scale);
+        const beamW = Math.max(4, 9 * tempProjA.scale);
+        const pulse = 0.6 + Math.sin(obj.pulse) * 0.4;
+        g.save();
+        g.translate(tempProjA.x, tempProjA.y);
+        g.globalCompositeOperation = 'screen';
+        g.shadowColor = 'rgba(176,124,255,0.96)';
+        g.shadowBlur = 22 * pulse;
+        const grad = g.createLinearGradient(0, -len * 0.7, 0, len * 0.7);
+        grad.addColorStop(0, 'rgba(255,255,255,0.18)');
+        grad.addColorStop(0.2, 'rgba(255,190,255,0.96)');
+        grad.addColorStop(0.52, 'rgba(176,124,255,1)');
+        grad.addColorStop(1, 'rgba(50,0,120,0.08)');
+        g.fillStyle = grad;
+        g.beginPath();
+        g.moveTo(0, -len);
+        g.lineTo(beamW, -len * 0.12);
+        g.lineTo(0, len);
+        g.lineTo(-beamW, -len * 0.12);
+        g.closePath();
+        g.fill();
+        g.strokeStyle = 'rgba(255,255,255,0.84)';
+        g.lineWidth = 1.2;
+        g.beginPath();
+        g.moveTo(0, -len);
+        g.lineTo(0, len);
+        g.stroke();
+        g.restore();
+      }
+
+      function drawDroneReticle(g) {
+        if (!game.drone.active || (game.drone.phase !== 'aim' && game.drone.phase !== 'fire')) return;
+        projectInto(game.drone.lockLane, 0.18, tempProjA);
+        projectInto(game.drone.lockLane, 0.54, tempProjB);
+        const alpha = game.drone.phase === 'aim' ? 0.34 + 0.42 * (0.5 + Math.sin(game.time * 18) * 0.5) : 0.78;
+        const r = 18 + Math.sin(game.time * 9) * 3;
+        g.save();
+        g.globalCompositeOperation = 'screen';
+        g.strokeStyle = `rgba(176,124,255,${alpha})`;
+        g.shadowColor = 'rgba(176,124,255,0.92)';
+        g.shadowBlur = 16;
+        g.lineWidth = 1.6;
+        g.beginPath();
+        g.moveTo(tempProjA.x, tempProjA.y);
+        g.lineTo(tempProjB.x, tempProjB.y);
+        g.stroke();
+        g.beginPath();
+        g.arc(tempProjB.x, tempProjB.y, r, 0, TAU);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(tempProjB.x - r - 10, tempProjB.y);
+        g.lineTo(tempProjB.x - r + 1, tempProjB.y);
+        g.moveTo(tempProjB.x + r - 1, tempProjB.y);
+        g.lineTo(tempProjB.x + r + 10, tempProjB.y);
+        g.moveTo(tempProjB.x, tempProjB.y - r - 10);
+        g.lineTo(tempProjB.x, tempProjB.y - r + 1);
+        g.moveTo(tempProjB.x, tempProjB.y + r - 1);
+        g.lineTo(tempProjB.x, tempProjB.y + r + 10);
+        g.stroke();
+        g.restore();
+      }
+
+      function drawDrone(g) {
+        if (!game.drone.active) return;
+        drawDroneReticle(g);
+        const dPos = getDroneScreenPosition(droneScreen);
+        const pulse = 0.7 + Math.sin(game.time * 9 + game.drone.pulse) * 0.25;
+        const locking = game.drone.phase === 'aim' || game.drone.phase === 'fire';
+        g.save();
+        g.translate(dPos.x, dPos.y);
+        g.scale(dPos.scale, dPos.scale);
+        g.globalCompositeOperation = 'screen';
+        g.shadowColor = 'rgba(176,124,255,0.95)';
+        g.shadowBlur = 30 * pulse;
+        const grad = g.createLinearGradient(0, -48, 0, 42);
+        grad.addColorStop(0, '#fff0ff');
+        grad.addColorStop(0.25, '#e0a8ff');
+        grad.addColorStop(0.62, '#b07cff');
+        grad.addColorStop(1, '#4d1ea8');
+        g.fillStyle = grad;
+        g.beginPath();
+        g.moveTo(0, -44);
+        g.lineTo(16, -10);
+        g.lineTo(36, 0);
+        g.lineTo(20, 14);
+        g.lineTo(10, 30);
+        g.lineTo(-10, 30);
+        g.lineTo(-20, 14);
+        g.lineTo(-36, 0);
+        g.lineTo(-16, -10);
+        g.closePath();
+        g.fill();
+        g.strokeStyle = 'rgba(255,255,255,0.85)';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(0, -42);
+        g.lineTo(14, -10);
+        g.lineTo(34, 0);
+        g.lineTo(16, 12);
+        g.lineTo(0, 26);
+        g.lineTo(-16, 12);
+        g.lineTo(-34, 0);
+        g.lineTo(-14, -10);
+        g.closePath();
+        g.stroke();
+        g.fillStyle = locking ? '#ffb8ff' : '#d29cff';
+        g.beginPath();
+        g.arc(0, -8, 8, 0, TAU);
+        g.fill();
+        g.fillStyle = 'rgba(30,0,56,0.92)';
+        g.beginPath();
+        g.arc(0, -8, 4.5, 0, TAU);
+        g.fill();
+        g.fillStyle = '#b07cff';
+        g.beginPath();
+        g.moveTo(-28, 4);
+        g.lineTo(-44, 14);
+        g.lineTo(-18, 12);
+        g.closePath();
+        g.fill();
+        g.beginPath();
+        g.moveTo(28, 4);
+        g.lineTo(44, 14);
+        g.lineTo(18, 12);
+        g.closePath();
+        g.fill();
+        for (let i = 0; i < 2; i++) {
+          const ex = i === 0 ? -12 : 12;
+          const flame = 18 + Math.sin(game.time * 14 + i) * 5 + (locking ? 6 : 0);
+          const flameGrad = g.createLinearGradient(ex, 12, ex, 12 + flame);
+          flameGrad.addColorStop(0, 'rgba(255,255,255,1)');
+          flameGrad.addColorStop(0.25, 'rgba(255,150,255,1)');
+          flameGrad.addColorStop(0.72, 'rgba(122,66,255,0.9)');
+          flameGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = flameGrad;
+          g.beginPath();
+          g.moveTo(ex - 4, 12);
+          g.quadraticCurveTo(ex, 12 + flame * 0.44, ex + Math.sin(game.time * 10 + i) * 2, 12 + flame);
+          g.quadraticCurveTo(ex, 12 + flame * 0.52, ex + 4, 12);
+          g.closePath();
+          g.fill();
+        }
+        g.restore();
+      }
+
+      function drawOverclockBeams(g, shipX, shipY) {
+        if (!game.overclock.active) return;
+        const chassis = CHASSIS[game.selectedChassis];
+        projectInto(-0.08, 0.1, tempProjA);
+        projectInto(0.08, 0.1, tempProjB);
+        const beamPulse = 0.72 + Math.sin(game.time * 18) * 0.28;
+        g.save();
+        g.globalCompositeOperation = 'screen';
+        for (let i = 0; i < 2; i++) {
+          const sx = shipX + (i === 0 ? -18 : 18);
+          const sy = shipY - 16;
+          const tx = i === 0 ? tempProjA.x : tempProjB.x;
+          const ty = height * 0.14;
+          const grad = g.createLinearGradient(sx, sy, tx, ty);
+          grad.addColorStop(0, 'rgba(255,255,255,1)');
+          grad.addColorStop(0.18, chassis.beam);
+          grad.addColorStop(0.62, '#72fbff');
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          g.strokeStyle = grad;
+          g.lineWidth = 5 + beamPulse * 3;
+          g.shadowColor = chassis.beam;
+          g.shadowBlur = 24 + beamPulse * 12;
+          g.beginPath();
+          g.moveTo(sx, sy);
+          g.lineTo(lerp(sx, tx, 0.42), lerp(sy, ty, 0.42) + Math.sin(game.time * 8 + i * 1.7) * 14);
+          g.lineTo(tx, ty);
+          g.stroke();
+          g.strokeStyle = 'rgba(255,255,255,0.92)';
+          g.lineWidth = 1.6;
+          g.beginPath();
+          g.moveTo(sx, sy);
+          g.lineTo(tx, ty);
+          g.stroke();
+        }
+        g.restore();
+      }
+
+      function drawShip(g) {
+        const chassis = CHASSIS[game.selectedChassis];
+        getShipScreenPosition(shipScreen);
+        const bob = Math.sin(game.player.bob) * (game.overclock.active ? 4 : 2.4);
+        const x = shipScreen.x;
+        const y = shipScreen.y + bob;
+        const w = Math.max(52, width * 0.056);
+        const h = w * 0.56;
+        const bank = (game.player.xLane - game.player.lane) * -0.3 + Math.sin(game.time * 0.6) * 0.02;
+        drawOverclockBeams(g, x, y);
+        g.save();
+        g.translate(x, y);
+        g.rotate(bank);
+        g.globalCompositeOperation = 'screen';
+        const hullGrad = g.createLinearGradient(0, -h * 0.7, 0, h * 0.8);
+        hullGrad.addColorStop(0, '#ffffff');
+        hullGrad.addColorStop(0.22, chassis.secondary);
+        hullGrad.addColorStop(0.52, chassis.base);
+        hullGrad.addColorStop(1, chassis.accent);
+        g.shadowColor = chassis.base;
+        g.shadowBlur = game.overclock.active ? 36 : 22;
+        g.fillStyle = hullGrad;
+        g.beginPath();
+        g.moveTo(0, -h * 0.88);
+        g.lineTo(w * 0.16, -h * 0.28);
+        g.lineTo(w * 0.58, h * 0.2);
+        g.lineTo(w * 0.2, h * 0.38);
+        g.lineTo(w * 0.1, h * 0.78);
+        g.lineTo(-w * 0.1, h * 0.78);
+        g.lineTo(-w * 0.2, h * 0.38);
+        g.lineTo(-w * 0.58, h * 0.2);
+        g.lineTo(-w * 0.16, -h * 0.28);
+        g.closePath();
+        g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.94)';
+        g.beginPath();
+        g.moveTo(0, -h * 0.64);
+        g.lineTo(w * 0.08, -h * 0.12);
+        g.lineTo(0, h * 0.1);
+        g.lineTo(-w * 0.08, -h * 0.12);
+        g.closePath();
+        g.fill();
+        g.fillStyle = 'rgba(4,16,26,0.92)';
+        g.beginPath();
+        g.moveTo(0, -h * 0.5);
+        g.lineTo(w * 0.06, -h * 0.08);
+        g.lineTo(0, h * 0.08);
+        g.lineTo(-w * 0.06, -h * 0.08);
+        g.closePath();
+        g.fill();
+        g.strokeStyle = 'rgba(255,255,255,0.9)';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(0, -h * 0.84);
+        g.lineTo(w * 0.15, -h * 0.25);
+        g.lineTo(w * 0.56, h * 0.2);
+        g.lineTo(w * 0.14, h * 0.34);
+        g.lineTo(0, h * 0.7);
+        g.lineTo(-w * 0.14, h * 0.34);
+        g.lineTo(-w * 0.56, h * 0.2);
+        g.lineTo(-w * 0.15, -h * 0.25);
+        g.closePath();
+        g.stroke();
+        g.fillStyle = chassis.accent;
+        g.beginPath();
+        g.moveTo(-w * 0.46, h * 0.22);
+        g.lineTo(-w * 0.68, h * 0.42);
+        g.lineTo(-w * 0.18, h * 0.34);
+        g.closePath();
+        g.fill();
+        g.beginPath();
+        g.moveTo(w * 0.46, h * 0.22);
+        g.lineTo(w * 0.68, h * 0.42);
+        g.lineTo(w * 0.18, h * 0.34);
+        g.closePath();
+        g.fill();
+        const enginePulse = 0.72 + Math.sin(game.time * (game.overclock.active ? 24 : 10)) * 0.24;
+        for (let i = 0; i < 2; i++) {
+          const ex = i === 0 ? -w * 0.16 : w * 0.16;
+          const flameLen = h * (0.75 + enginePulse * (game.overclock.active ? 0.95 : 0.48));
+          const flameGrad = g.createLinearGradient(ex, h * 0.2, ex, h * 0.2 + flameLen);
+          flameGrad.addColorStop(0, 'rgba(255,255,255,1)');
+          flameGrad.addColorStop(0.26, chassis.trail);
+          flameGrad.addColorStop(0.72, chassis.accent);
+          flameGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = flameGrad;
+          g.beginPath();
+          g.moveTo(ex - 5, h * 0.24);
+          g.quadraticCurveTo(ex, h * 0.24 + flameLen * 0.45, ex + Math.sin(game.time * 9 + i) * 3, h * 0.24 + flameLen);
+          g.quadraticCurveTo(ex, h * 0.24 + flameLen * 0.52, ex + 5, h * 0.24);
+          g.closePath();
+          g.fill();
+        }
+        if (game.player.hitCooldown > 0) {
+          g.strokeStyle = `rgba(255,80,100,${0.4 + Math.sin(game.time * 34) * 0.3})`;
+          g.lineWidth = 3;
+          g.beginPath();
+          g.arc(0, 0, w * 0.92, 0, TAU);
+          g.stroke();
+        }
+        g.restore();
+      }
+
+      function drawParticles(g) {
+        const items = pools.particles.items;
+        g.save();
+        g.globalCompositeOperation = 'screen';
+        for (let i = 0; i < items.length; i++) {
+          const p = items[i];
+          if (!p.active) continue;
+          const alpha = clamp(p.life / p.maxLife, 0, 1);
+          g.shadowColor = p.color;
+          g.shadowBlur = p.glow * alpha;
+          g.fillStyle = hexToRgba(p.color, alpha);
+          if (p.star) {
+            drawStarShape(g, p.x, p.y, p.size * alpha * 1.25 + 1, p.color, alpha);
+          } else {
+            g.beginPath();
+            g.arc(p.x, p.y, Math.max(0.6, p.size * alpha), 0, TAU);
+            g.fill();
+          }
+        }
+        g.restore();
+      }
+
+      function drawStarShape(g, x, y, r, color, alpha) {
+        g.save();
+        g.translate(x, y);
+        g.fillStyle = hexToRgba(color, alpha);
+        g.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const ang = (Math.PI / 4) * i;
+          const len = i % 2 === 0 ? r : r * 0.42;
+          const px = Math.cos(ang) * len;
+          const py = Math.sin(ang) * len;
+          if (i === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
+        }
+        g.closePath();
+        g.fill();
+        g.restore();
+      }
+
+      function drawTexts(g) {
+        const items = pools.texts.items;
+        g.save();
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        for (let i = 0; i < items.length; i++) {
+          const t = items[i];
+          if (!t.active) continue;
+          const alpha = clamp(t.life, 0, 1);
+          const size = Math.round(18 * t.scale);
+          g.font = `800 ${size}px Inter, system-ui, sans-serif`;
+          g.fillStyle = hexToRgba(t.color, alpha);
+          g.shadowColor = t.color;
+          g.shadowBlur = 14;
+          g.fillText(t.text, t.x, t.y);
+        }
+        g.restore();
+      }
+
+      function drawObjectPools(g) {
+        const cubes = pools.cubes.items;
+        const hazards = pools.hazards.items;
+        const projectiles = pools.projectiles.items;
+        for (let pass = 0; pass < 3; pass++) {
+          if (pass === 0) {
+            for (let i = 0; i < cubes.length; i++) if (cubes[i].active) drawCube(g, cubes[i]);
+          } else if (pass === 1) {
+            for (let i = 0; i < hazards.length; i++) if (hazards[i].active) drawHazard(g, hazards[i]);
+          } else {
+            for (let i = 0; i < projectiles.length; i++) if (projectiles[i].active) drawProjectile(g, projectiles[i]);
+          }
+        }
+      }
+
+      function drawVignette(g) {
+        const vignette = g.createRadialGradient(width * 0.5, height * 0.45, Math.min(width, height) * 0.18, width * 0.5, height * 0.45, Math.max(width, height) * 0.76);
+        vignette.addColorStop(0, 'rgba(0,0,0,0)');
+        vignette.addColorStop(0.66, 'rgba(0,0,0,0.04)');
+        vignette.addColorStop(1, 'rgba(0,0,0,0.42)');
+        g.fillStyle = vignette;
+        g.fillRect(0, 0, width, height);
+        g.fillStyle = 'rgba(255,255,255,0.022)';
+        for (let y = 0; y < height; y += 3) g.fillRect(0, y, width, 1);
+        if (game.camera.damageFlash > 0) {
+          g.save();
+          g.globalCompositeOperation = 'screen';
+          g.fillStyle = `rgba(255,68,95,${0.12 * game.camera.damageFlash})`;
+          g.fillRect(0, 0, width, height);
+          g.restore();
+        }
+      }
+
+      function hexToRgba(hex, alpha) {
+        let value = hex.charCodeAt(0) === 35 ? hex.slice(1) : hex;
+        if (value.length === 3) value = value[0] + value[0] + value[1] + value[1] + value[2] + value[2];
+        const int = parseInt(value, 16);
+        const r = (int >> 16) & 255;
+        const g = (int >> 8) & 255;
+        const b = int & 255;
+        return `rgba(${r},${g},${b},${alpha})`;
+      }
+
+      function renderScene() {
+        const g = sceneCtx;
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, width, height);
+        drawBackground(g);
+        drawSun(g);
+        drawSkyline(g);
+        drawMicroParticles(g);
+        drawRoad(g);
+        drawObjectPools(g);
+        drawParticles(g);
+        drawDrone(g);
+        drawShip(g);
+        drawTexts(g);
+        drawVignette(g);
+      }
+
+      function compositeToScreen() {
+        const shake = game.camera.shake;
+        const ab = game.camera.aberration;
+        const driftX = Math.sin(game.camera.drift * 0.72) * 2.4;
+        const driftY = Math.sin(game.camera.drift * 0.54 + 1.4) * 1.8;
+        const sx = shake > 0 ? rand(-shake, shake) : 0;
+        const sy = shake > 0 ? rand(-shake, shake) : 0;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(sceneCanvas, sx + driftX, sy + driftY, width, height);
+
+        if (ab > 0.001) {
+          const shift = 2 + ab * 8;
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = 0.14 * ab;
+          ctx.drawImage(sceneCanvas, sx + driftX + shift, sy + driftY, width, height);
+          ctx.fillStyle = `rgba(255,80,100,${0.14 * ab})`;
+          ctx.fillRect(0, 0, width, height);
+          ctx.globalAlpha = 0.12 * ab;
+          ctx.drawImage(sceneCanvas, sx + driftX - shift, sy + driftY, width, height);
+          ctx.fillStyle = `rgba(80,255,255,${0.12 * ab})`;
+          ctx.fillRect(0, 0, width, height);
+          ctx.restore();
+        }
+      }
+
+      function loop(now) {
+        const dt = Math.min(0.033, (now - lastTime) / 1000 || 0.016);
+        lastTime = now;
+        if (game.state === 'PLAYING') updateGameplay(dt);
+        else if (game.state === 'MENU') updateMenu(dt);
+        else updateGameOver(dt);
+        updateAudio(dt);
+        renderScene();
+        compositeToScreen();
+        requestAnimationFrame(loop);
+      }
+
+      function keyDown(event) {
+        if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'Space', 'KeyR', 'Enter'].includes(event.code)) event.preventDefault();
+        ensureAudio();
+        if (event.code === 'ArrowLeft' || event.code === 'KeyA') {
+          if (game.state === 'PLAYING' && !event.repeat) {
+            game.player.lane = clamp(game.player.lane - 1, -1, 1);
+            game.player.stuntWindow = 0.36;
+          }
+        }
+        if (event.code === 'ArrowRight' || event.code === 'KeyD') {
+          if (game.state === 'PLAYING' && !event.repeat) {
+            game.player.lane = clamp(game.player.lane + 1, -1, 1);
+            game.player.stuntWindow = 0.36;
+          }
+        }
+        if (event.code === 'Space') {
+          if (game.state === 'PLAYING') activateOverclock();
+          else if (game.state === 'MENU') startGame();
+        }
+        if (event.code === 'Enter') {
+          if (game.state === 'MENU' || game.state === 'GAME_OVER') startGame();
+        }
+        if (event.code === 'KeyR' && game.state === 'GAME_OVER') startGame();
+      }
+
+      startButton.addEventListener('click', startGame);
+      quickStartButton.addEventListener('click', startGame);
+      restartButton.addEventListener('click', startGame);
+      returnMenuButton.addEventListener('click', showMenu);
+      for (let i = 0; i < chassisButtons.length; i++) {
+        chassisButtons[i].addEventListener('click', () => setSelectedChassis(chassisButtons[i].dataset.chassis));
+      }
+
+      window.addEventListener('keydown', keyDown, { passive: false });
+      window.addEventListener('resize', resize);
+
+      resize();
+      setSelectedChassis('volt');
+      resetRun();
+      setState('MENU');
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
